@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+uploads/
+*.log
+*.log
+*.OLD_DO_NOT_RUN
+index.old.js
+index_full_backup.js
+paste_the_path_it_shows_here.txt

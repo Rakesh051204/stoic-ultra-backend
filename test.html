@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Stoic Stream Test</title>
+</head>
+<body>
+  <h1>Stoic Stream Test</h1>
+  <input id="msg" placeholder="Type a message" size="50">
+  <button id="send">Send</button>
+  <pre id="output" style="border:1px solid #ccc; padding:10px; max-height:400px; overflow:auto;"></pre>
+  <script>
+    // ─── Streaming client code ──────────────────────────────
+    const output = document.getElementById('output');
+    const sendBtn = document.getElementById('send');
+    const msgInput = document.getElementById('msg');
+
+    function sendMessage(message) {
+      output.textContent = '';
+
+      fetch('http://localhost:3001/api/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      }).then(response => {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        function read() {
+          reader.read().then(({ done, value }) => {
+            if (done) {
+              console.log('✅ Stream finished');
+              return;
+            }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const payload = JSON.parse(line.slice(6));
+                  switch (payload.event) {
+                    case 'thinking':
+                      output.textContent += '💭 ' + payload.text + '\n';
+                      break;
+                    case 'token':
+                      output.textContent += payload.text;
+                      break;
+                    case 'sources':
+                      output.textContent += '\n📚 Sources: ' + JSON.stringify(payload.sources) + '\n';
+                      break;
+                    case 'images':
+                      output.textContent += '\n🖼️ Images: ' + JSON.stringify(payload.images) + '\n';
+                      break;
+                    case 'followups':
+                      output.textContent += '\n💡 Follow-ups: ' + payload.followUps.join(', ') + '\n';
+                      break;
+                    case 'done':
+                      output.textContent += '\n🏁 Done';
+                      break;
+                    case 'error':
+                      output.textContent += '\n❌ Error: ' + payload.message;
+                      break;
+                  }
+                } catch (e) {
+                  console.error('⚠️ Parse error:', e, 'Line:', line);
+                }
+              }
+            }
+            read();
+          });
+        }
+        read();
+      }).catch(err => {
+        output.textContent = '🔥 Fetch error: ' + err.message;
+      });
+    }
+
+    sendBtn.onclick = () => {
+      const msg = msgInput.value.trim();
+      if (msg) sendMessage(msg);
+    };
+    msgInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendBtn.click();
+    });
+  </script>
+</body>
+</html>

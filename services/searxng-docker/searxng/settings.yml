@@ -1,0 +1,53 @@
+use_default_settings: true
+
+general:
+  instance_name: "stoic-internal-search"
+  # This instance is for your own backend only — don't submit it to the
+  # public SearXNG instance list.
+  privacypolicy_url: false
+  donation_url: false
+  contact_url: false
+
+server:
+  # Generated randomly for this setup — fine to keep as-is for a local,
+  # non-public instance. Regenerate if you ever expose this beyond localhost.
+  secret_key: "b371612a0fc297fb3cfd3a8f6ba63ddd1234e2a42adbfb2b2b1a491d78048cc5"
+  # The bot-detection limiter is meant for public instances getting abuse
+  # traffic. Since only your own backend calls this over localhost, it's
+  # safe (and necessary) to turn it off — otherwise JSON API calls from
+  # Node get rate-limited/blocked as if they were scrapers.
+  limiter: false
+  image_proxy: true
+  method: "GET"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - html
+    - json   # <-- required: this is what lets Node hit /search?format=json
+
+# Keep the engine list reasonably broad and fast. SearXNG's default_settings
+# already enables google, bing, duckduckgo, brave, wikipedia, etc. — you
+# generally don't need to touch this unless an engine is unreliable for you.
+engines:
+  - name: wikipedia
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: bing
+    disabled: false
+  - name: brave
+    disabled: false
+  - name: google
+    disabled: false
+  # Image-capable engines — separate named engines from the general
+  # ones above, which is why images returned empty even though
+  # general text search worked fine.
+  - name: bing images
+    disabled: false
+  - name: google images
+    disabled: false
+  - name: duckduckgo images
+    disabled: false

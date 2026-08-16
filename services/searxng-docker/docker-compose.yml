@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: stoic-searxng
+    restart: unless-stopped
+    ports:
+      # Only exposed on localhost — do NOT map this to 0.0.0.0 or a public
+      # port. SearXNG has no auth of its own; it's meant to be called only
+      # by your backend running on the same machine.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+      - INSTANCE_NAME=stoic-internal-search
+    sysctls:
+      # Your WiFi network appears to advertise IPv6 that isn't actually
+      # routable (same issue that's affected Supabase calls elsewhere).
+      # This disables IPv6 inside the container so outbound requests only
+      # ever try IPv4, skipping the failed IPv6 attempt + timeout entirely.
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
