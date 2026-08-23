@@ -1,0 +1,122 @@
+[
+  {
+    "query": "What is the latest news about OpenAI?",
+    "expected_sources_contain": ["openai.com", "techcrunch.com", "theverge.com"],
+    "expected_answer_keywords": ["OpenAI", "announcement"],
+    "category": "news"
+  },
+  {
+    "query": "Explain how pgvector HNSW indexing works",
+    "expected_sources_contain": ["github.com", "pgvector"],
+    "expected_answer_keywords": ["approximate nearest neighbor", "index"],
+    "category": "technical"
+  },
+  {
+    "query": "What is retrieval augmented generation?",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": ["retrieval", "generation", "context"],
+    "category": "technical"
+  },
+  {
+    "query": "hi how are you",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": [],
+    "category": "chitchat"
+  },
+  {
+    "query": "What's the current stock price of Nvidia?",
+    "expected_sources_contain": ["finance", "bloomberg", "google.com"],
+    "expected_answer_keywords": ["NVIDIA", "stock", "price"],
+    "category": "news"
+  },
+  {
+    "query": "Explain the difference between SSE and WebSockets",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": ["server-sent events", "websocket", "connection"],
+    "category": "technical"
+  },
+  {
+    "query": "Who won the latest Formula 1 race?",
+    "expected_sources_contain": ["formula1.com", "espn.com"],
+    "expected_answer_keywords": ["Formula 1", "race", "winner"],
+    "category": "news"
+  },
+  {
+    "query": "What is Groq and how is it different from OpenAI's API?",
+    "expected_sources_contain": ["groq.com"],
+    "expected_answer_keywords": ["Groq", "inference", "speed"],
+    "category": "technical"
+  },
+  {
+    "query": "thanks that helps",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": [],
+    "category": "chitchat"
+  },
+  {
+    "query": "What are the latest AI model releases this month?",
+    "expected_sources_contain": ["techcrunch.com", "theverge.com"],
+    "expected_answer_keywords": ["model", "release"],
+    "category": "news"
+  },
+  {
+    "query": "Explain how Voyage AI embeddings work",
+    "expected_sources_contain": ["voyageai.com"],
+    "expected_answer_keywords": ["embedding", "vector"],
+    "category": "technical"
+  },
+  {
+    "query": "What is the weather like today?",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": ["weather"],
+    "category": "chitchat"
+  },
+  {
+    "query": "Compare React and Vue for frontend development",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": ["React", "Vue", "component"],
+    "category": "technical"
+  },
+  {
+    "query": "What happened in the tech industry this week?",
+    "expected_sources_contain": ["techcrunch.com"],
+    "expected_answer_keywords": ["tech", "industry"],
+    "category": "news"
+  },
+  {
+    "query": "can you summarize our last conversation",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": [],
+    "category": "chitchat"
+  },
+  {
+    "query": "",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": [],
+    "category": "edge_case"
+  },
+  {
+    "query": "I've been working on a Node.js and FastAPI based system for a while now and I keep running into issues with how my vector search results are being ranked when I combine dense embeddings from Voyage AI with sparse keyword matches from SearXNG, and I'm wondering if there's a standard approach to hybrid ranking that handles this kind of fusion well, especially at scale, without needing a ton of manual tuning",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": ["hybrid", "ranking", "search"],
+    "category": "edge_case"
+  },
+  {
+    "query": "टैमिल सिनेमा में इस हफ्ते क्या नया है?",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": [],
+    "category": "edge_case"
+  },
+  {
+    "query": "2 + 2 is what",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": ["4"],
+    "category": "edge_case"
+  },
+  {
+    "query": "asdkjaslkdjalksjd????",
+    "expected_sources_contain": [],
+    "expected_answer_keywords": [],
+    "category": "edge_case"
+  }
+]
