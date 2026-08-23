@@ -1,0 +1,77 @@
+[
+  {
+    "query": "What is the latest news about OpenAI?",
+    "category": "news",
+    "error": "fetch failed"
+  },
+  {
+    "query": "Explain how pgvector HNSW indexing works",
+    "category": "technical",
+    "error": "fetch failed"
+  },
+  {
+    "query": "What is retrieval augmented generation?",
+    "category": "technical",
+    "error": "fetch failed"
+  },
+  {
+    "query": "hi how are you",
+    "category": "chitchat",
+    "error": "fetch failed"
+  },
+  {
+    "query": "What's the current stock price of Nvidia?",
+    "category": "news",
+    "error": "fetch failed"
+  },
+  {
+    "query": "Explain the difference between SSE and WebSockets",
+    "category": "technical",
+    "error": "fetch failed"
+  },
+  {
+    "query": "Who won the latest Formula 1 race?",
+    "category": "news",
+    "error": "fetch failed"
+  },
+  {
+    "query": "What is Groq and how is it different from OpenAI's API?",
+    "category": "technical",
+    "error": "fetch failed"
+  },
+  {
+    "query": "thanks that helps",
+    "category": "chitchat",
+    "error": "fetch failed"
+  },
+  {
+    "query": "What are the latest AI model releases this month?",
+    "category": "news",
+    "error": "fetch failed"
+  },
+  {
+    "query": "Explain how Voyage AI embeddings work",
+    "category": "technical",
+    "error": "fetch failed"
+  },
+  {
+    "query": "What is the weather like today?",
+    "category": "chitchat",
+    "error": "fetch failed"
+  },
+  {
+    "query": "Compare React and Vue for frontend development",
+    "category": "technical",
+    "error": "fetch failed"
+  },
+  {
+    "query": "What happened in the tech industry this week?",
+    "category": "news",
+    "error": "fetch failed"
+  },
+  {
+    "query": "can you summarize our last conversation",
+    "category": "chitchat",
+    "error": "fetch failed"
+  }
+]

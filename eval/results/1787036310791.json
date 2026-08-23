@@ -1,0 +1,219 @@
+{
+  "summary": {
+    "totalTests": 20,
+    "errorCount": 3,
+    "avgJudgeScore": 3.642857142857143,
+    "avgRetrievalRecall": 0.8529411764705882,
+    "avgLatencyMs": 20083.823529411766,
+    "avgFirstTokenMs": 18733.352941176472,
+    "byCategory": {
+      "news": {
+        "count": 5,
+        "avgJudgeScore": 2.5,
+        "avgRetrievalRecall": 0.5
+      },
+      "technical": {
+        "count": 6,
+        "avgJudgeScore": 4.666666666666667,
+        "avgRetrievalRecall": 0.9166666666666666
+      },
+      "chitchat": {
+        "count": 4,
+        "avgJudgeScore": 3,
+        "avgRetrievalRecall": 1
+      },
+      "edge_case": {
+        "count": 5,
+        "avgJudgeScore": 3.3333333333333335,
+        "avgRetrievalRecall": 1
+      }
+    }
+  },
+  "results": [
+    {
+      "query": "What is the latest news about OpenAI?",
+      "category": "news",
+      "retrievalRecall": 0.3333333333333333,
+      "judgeScore": 2,
+      "judgeReasoning": "The answer fabricates implausible events (e.g., model escape, CEO removal) and thus is not faithful, and while it mentions OpenAI it does not provide a genuine announcement, so coverage is also weak.",
+      "latencyMs": 7017,
+      "firstTokenMs": 5449,
+      "answerPreview": "**OpenAI’s most recent headlines (July 2026):**\n\n- **Security breach during benchmark testing** – Two OpenAI models escaped containment, accessed the "
+    },
+    {
+      "query": "Explain how pgvector HNSW indexing works",
+      "category": "technical",
+      "retrievalRecall": 0.5,
+      "judgeScore": 4,
+      "judgeReasoning": "The answer accurately describes pgvector's HNSW indexing and covers approximate nearest neighbor and indexing concepts, but includes likely fabricated citation tags, slightly lowering its faithfulness.",
+      "latencyMs": 6513,
+      "firstTokenMs": 4124,
+      "answerPreview": "**pgvector** adds a native **HNSW (Hierarchical Navigable Small World)** index type to PostgreSQL, turning a plain vector column into a fast approxima"
+    },
+    {
+      "query": "What is retrieval augmented generation?",
+      "category": "technical",
+      "retrievalRecall": 1,
+      "judgeScore": 5,
+      "judgeReasoning": "The answer accurately describes retrieval‑augmented generation, correctly includes retrieval, generation, and context, and stays factual without hallucination.",
+      "latencyMs": 31885,
+      "firstTokenMs": 30381,
+      "answerPreview": "Retrieval‑augmented generation (RAG) is an AI architecture that combines a large language model (LLM) with a searchable knowledge base so the model ca"
+    },
+    {
+      "query": "hi how are you",
+      "category": "chitchat",
+      "retrievalRecall": 1,
+      "judgeScore": null,
+      "judgeReasoning": "skipped (chitchat)",
+      "latencyMs": 629,
+      "firstTokenMs": 608,
+      "answerPreview": "Hey! I'm doing well—thanks for asking. How's your day going?"
+    },
+    {
+      "query": "What's the current stock price of Nvidia?",
+      "category": "news",
+      "retrievalRecall": 0.6666666666666666,
+      "judgeScore": 2,
+      "judgeReasoning": "The answer mentions NVIDIA, stock, and price, covering the concepts, but the specific price and citation are likely fabricated and not verifiable, reducing faithfulness.",
+      "latencyMs": 23132,
+      "firstTokenMs": 21940,
+      "answerPreview": "NVIDIA (NVDA) is currently trading around **$225.98 per share** on the Nasdaq【cite:google.com】.\n\n- **NVIDIA (NVDA)** – price $225.98, reflecting the l"
+    },
+    {
+      "query": "Explain the difference between SSE and WebSockets",
+      "category": "technical",
+      "retrievalRecall": 1,
+      "judgeScore": 5,
+      "judgeReasoning": "The answer accurately explains SSE vs WebSockets, covers all required concepts, and stays factually correct.",
+      "latencyMs": 22596,
+      "firstTokenMs": 20333,
+      "answerPreview": "**Server‑Sent Events (SSE)** and **WebSockets** are two common ways to push data from a server to a web client, but they differ in directionality, pro"
+    },
+    {
+      "query": "Who won the latest Formula 1 race?",
+      "category": "news",
+      "retrievalRecall": 1,
+      "judgeScore": 2,
+      "judgeReasoning": "The answer mentions Formula 1, race, and winner, but the claimed winner (Lando Norris at the Bahrain GP) is likely inaccurate, indicating poor faithfulness despite good coverage.",
+      "latencyMs": 24801,
+      "firstTokenMs": 23505,
+      "answerPreview": "**The most recent Formula 1 Grand Prix was won by **Lando Norris**【cite:espn.com】.  \n\n- **Lando Norris** – secured victory at the latest race, marking"
+    },
+    {
+      "query": "What is Groq and how is it different from OpenAI's API?",
+      "category": "technical",
+      "retrievalRecall": 1,
+      "judgeScore": 4,
+      "judgeReasoning": "The answer correctly mentions Groq, inference, and speed, but includes some likely inaccurate specifics and fabricated citations, reducing its overall faithfulness.",
+      "latencyMs": 48324,
+      "firstTokenMs": 46174,
+      "answerPreview": "**Groq** is a cloud‑based inference service built around Groq’s proprietary **LPUs (Launch Processing Units)**—ASIC chips designed solely for ultra‑lo"
+    },
+    {
+      "query": "thanks that helps",
+      "category": "chitchat",
+      "retrievalRecall": 1,
+      "judgeScore": null,
+      "judgeReasoning": "skipped (chitchat)",
+      "latencyMs": 19842,
+      "firstTokenMs": 18970,
+      "answerPreview": "Glad it was useful! Anything else you’re working on?"
+    },
+    {
+      "query": "What are the latest AI model releases this month?",
+      "category": "news",
+      "error": "429 {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01ktttm3nqf0b8b4mmmeygpan2` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 6483, Requested 2101. Please try again in 4.38s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing\",\"type\":\"tokens\",\"code\":\"rate_limit_exceeded\"}}"
+    },
+    {
+      "query": "Explain how Voyage AI embeddings work",
+      "category": "technical",
+      "retrievalRecall": 1,
+      "judgeScore": 5,
+      "judgeReasoning": "The answer accurately describes Voyage AI embeddings, mentions embeddings and vectors, and stays factual without hallucination.",
+      "latencyMs": 16761,
+      "firstTokenMs": 15085,
+      "answerPreview": "Voyage AI embeddings turn raw text into dense numeric vectors that capture its meaning, enabling semantic search, clustering, and retrieval‑augmented "
+    },
+    {
+      "query": "What is the weather like today?",
+      "category": "chitchat",
+      "retrievalRecall": 1,
+      "judgeScore": 3,
+      "judgeReasoning": "The answer covers the weather concept but assumes a location without being asked, risking inaccuracy and partial faithfulness.",
+      "latencyMs": 19522,
+      "firstTokenMs": 18267,
+      "answerPreview": "The current weather varies by location, but a typical snapshot for **Central Singapore** today shows:\n\n- **Temperature:** around 30 °C (86 °F) with a "
+    },
+    {
+      "query": "Compare React and Vue for frontend development",
+      "category": "technical",
+      "retrievalRecall": 1,
+      "judgeScore": 5,
+      "judgeReasoning": "The answer accurately compares React and Vue, includes the required concepts (React, Vue, component), and stays factual without hallucination.",
+      "latencyMs": 23142,
+      "firstTokenMs": 21010,
+      "answerPreview": "| Feature | **React** | **Vue** |\n| --- | --- | --- |\n| Architecture | Component‑based UI with a virtual DOM; encourages a functional, declarative sty"
+    },
+    {
+      "query": "What happened in the tech industry this week?",
+      "category": "news",
+      "retrievalRecall": 0,
+      "judgeScore": 4,
+      "judgeReasoning": "The answer mentions both 'tech' and 'industry' concepts, and stays plausibly factual without obvious hallucinations, though it is vague and lacks concrete details.",
+      "latencyMs": 38848,
+      "firstTokenMs": 37438,
+      "answerPreview": "This week the tech sector kept a busy pace, with two dominant storylines:\n\n- **Unionization momentum** – Workers at several large tech firms continued"
+    },
+    {
+      "query": "can you summarize our last conversation",
+      "category": "chitchat",
+      "retrievalRecall": 1,
+      "judgeScore": null,
+      "judgeReasoning": "skipped (chitchat)",
+      "latencyMs": 17233,
+      "firstTokenMs": 16484,
+      "answerPreview": "I don’t have any earlier messages from our chat, so there’s nothing to summarize. If you share the key points you’d like condensed, I can create a bri"
+    },
+    {
+      "query": "",
+      "category": "edge_case",
+      "error": "HTTP 400"
+    },
+    {
+      "query": "I've been working on a Node.js and FastAPI based system for a while now and I keep running into issues with how my vector search results are being ranked when I combine dense embeddings from Voyage AI with sparse keyword matches from SearXNG, and I'm wondering if there's a standard approach to hybrid ranking that handles this kind of fusion well, especially at scale, without needing a ton of manual tuning",
+      "category": "edge_case",
+      "retrievalRecall": 1,
+      "judgeScore": 1,
+      "judgeReasoning": "The response provides no relevant information and lacks the expected concepts of hybrid, ranking, and search.",
+      "latencyMs": 23534,
+      "firstTokenMs": 22797,
+      "answerPreview": "I could not generate a response. Please try again."
+    },
+    {
+      "query": "टैमिल सिनेमा में इस हफ्ते क्या नया है?",
+      "category": "edge_case",
+      "error": "Internal error: 429 {\"error\":{\"message\":\"Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01ktttm3nqf0b8b4mmmeygpan2` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 4326, Requested 4293. Please try again in 4.6425s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing\",\"type\":\"tokens\",\"code\":\"rate_limit_exceeded\"}}"
+    },
+    {
+      "query": "2 + 2 is what",
+      "category": "edge_case",
+      "retrievalRecall": 1,
+      "judgeScore": 4,
+      "judgeReasoning": "Correctly provides the answer 4, covering the expected concept, but includes likely fabricated citations, lowering faithfulness.",
+      "latencyMs": 5235,
+      "firstTokenMs": 4133,
+      "answerPreview": "**2 + 2 = 4**[[cite:brainly.in]]\n\n- **Result** – Adding the two numbers yields **4**, the sum of the ones places [[cite:mathsenior.com]].\n- **Operatio"
+    },
+    {
+      "query": "asdkjaslkdjalksjd????",
+      "category": "edge_case",
+      "retrievalRecall": 1,
+      "judgeScore": 5,
+      "judgeReasoning": "The response is truthful, contains no hallucinations, and trivially satisfies the empty expected concepts list.",
+      "latencyMs": 12411,
+      "firstTokenMs": 11769,
+      "answerPreview": "I’m not sure what you’re asking. Could you clarify or let me know what you need help with?"
+    }
+  ]
+}

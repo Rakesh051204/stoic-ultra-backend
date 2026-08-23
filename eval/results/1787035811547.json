@@ -1,0 +1,134 @@
+{
+  "summary": {
+    "totalTests": 20,
+    "errorCount": 20,
+    "avgJudgeScore": null,
+    "avgRetrievalRecall": null,
+    "avgLatencyMs": null,
+    "avgFirstTokenMs": null,
+    "byCategory": {
+      "news": {
+        "count": 5,
+        "avgJudgeScore": null,
+        "avgRetrievalRecall": null
+      },
+      "technical": {
+        "count": 6,
+        "avgJudgeScore": null,
+        "avgRetrievalRecall": null
+      },
+      "chitchat": {
+        "count": 4,
+        "avgJudgeScore": null,
+        "avgRetrievalRecall": null
+      },
+      "edge_case": {
+        "count": 5,
+        "avgJudgeScore": null,
+        "avgRetrievalRecall": null
+      }
+    }
+  },
+  "results": [
+    {
+      "query": "What is the latest news about OpenAI?",
+      "category": "news",
+      "error": "fetch failed"
+    },
+    {
+      "query": "Explain how pgvector HNSW indexing works",
+      "category": "technical",
+      "error": "fetch failed"
+    },
+    {
+      "query": "What is retrieval augmented generation?",
+      "category": "technical",
+      "error": "fetch failed"
+    },
+    {
+      "query": "hi how are you",
+      "category": "chitchat",
+      "error": "fetch failed"
+    },
+    {
+      "query": "What's the current stock price of Nvidia?",
+      "category": "news",
+      "error": "fetch failed"
+    },
+    {
+      "query": "Explain the difference between SSE and WebSockets",
+      "category": "technical",
+      "error": "fetch failed"
+    },
+    {
+      "query": "Who won the latest Formula 1 race?",
+      "category": "news",
+      "error": "fetch failed"
+    },
+    {
+      "query": "What is Groq and how is it different from OpenAI's API?",
+      "category": "technical",
+      "error": "fetch failed"
+    },
+    {
+      "query": "thanks that helps",
+      "category": "chitchat",
+      "error": "fetch failed"
+    },
+    {
+      "query": "What are the latest AI model releases this month?",
+      "category": "news",
+      "error": "fetch failed"
+    },
+    {
+      "query": "Explain how Voyage AI embeddings work",
+      "category": "technical",
+      "error": "fetch failed"
+    },
+    {
+      "query": "What is the weather like today?",
+      "category": "chitchat",
+      "error": "fetch failed"
+    },
+    {
+      "query": "Compare React and Vue for frontend development",
+      "category": "technical",
+      "error": "fetch failed"
+    },
+    {
+      "query": "What happened in the tech industry this week?",
+      "category": "news",
+      "error": "fetch failed"
+    },
+    {
+      "query": "can you summarize our last conversation",
+      "category": "chitchat",
+      "error": "fetch failed"
+    },
+    {
+      "query": "",
+      "category": "edge_case",
+      "error": "fetch failed"
+    },
+    {
+      "query": "I've been working on a Node.js and FastAPI based system for a while now and I keep running into issues with how my vector search results are being ranked when I combine dense embeddings from Voyage AI with sparse keyword matches from SearXNG, and I'm wondering if there's a standard approach to hybrid ranking that handles this kind of fusion well, especially at scale, without needing a ton of manual tuning",
+      "category": "edge_case",
+      "error": "fetch failed"
+    },
+    {
+      "query": "टैमिल सिनेमा में इस हफ्ते क्या नया है?",
+      "category": "edge_case",
+      "error": "fetch failed"
+    },
+    {
+      "query": "2 + 2 is what",
+      "category": "edge_case",
+      "error": "fetch failed"
+    },
+    {
+      "query": "asdkjaslkdjalksjd????",
+      "category": "edge_case",
+      "error": "fetch failed"
+    }
+  ]
+}
