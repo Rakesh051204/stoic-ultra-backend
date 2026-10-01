@@ -557,10 +557,11 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
     // ------------------------------------------------------------------------
 
     send('thinking', { text: 'Understanding your question' })
-    send('thinking', { text: 'Searching the web' })
+    const hasImageUpload = getAttachments(sessionId).some(a => a.type === 'image')
+    send('thinking', { text: hasImageUpload ? 'Looking at your image' : 'Searching the web' })
 
     const searchQuery = resolveSearchQuery(message, sessionId)
-    const { sources, images } = (CODE_TASK_RE.test(message) ? { sources: [], images: [] } : await runSearch(searchQuery, 'balanced'))
+    const { sources, images } = ((CODE_TASK_RE.test(message) || hasImageUpload) ? { sources: [], images: [] } : await runSearch(searchQuery, 'balanced'))
 
     console.log(`ðŸ–¼ï¸ Images from runSearch: ${images?.length || 0}`)
 
