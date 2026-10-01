@@ -610,6 +610,7 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
     promptMessages.push({ role: 'user', content: message })
 
     const attachments = getAttachments(sessionId)
+    console.log('ATTACH DEBUG session:', sessionId, 'count:', attachments.length, attachments.map(a => a.type + ':' + (a.mimetype || '') + ':' + (a.textContent ? 'hasText' : 'noText')).join(', '))
     const imageAttachments = attachments.filter(a => a.type === 'image')
     const textAttachments = attachments.filter(a => a.textContent)
 
