@@ -1,4 +1,5 @@
 import express from 'express'
+import { requireAuth } from '../middleware/requireAuth.js'
 import { createClient } from '@supabase/supabase-js'
 import { detectLocationIntent } from '../utils/locationIntent.js';
 import { geocodePlace, findNearby } from '../services/geoService.js';
@@ -14,11 +15,9 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 // placeholder user id pulled from query/body if provided, falling back to
 // listing everything. Once real auth exists, replace DEV_USER_ID usage with
 // the authenticated user's id.
-const DEV_USER_ID = process.env.DEV_USER_ID || null
-
-function scopeToUser(query) {
-  if (DEV_USER_ID) return query.eq('user_id', DEV_USER_ID)
-  return query
+function scopeToUser(query, req) {
+  const userId = req.query?.userId || req.body?.userId || process.env.DEV_USER_ID
+  return userId ? query.eq('user_id', userId) : query
 }
 
 // GET /api/conversations — list all sessions for the sidebar
@@ -29,7 +28,7 @@ router.get('/', async (req, res) => {
     .order('pinned', { ascending: false })
     .order('updated_at', { ascending: false })
 
-  query = scopeToUser(query)
+  query = scopeToUser(query, req)
 
   const { data, error } = await query
   if (error) return res.status(500).json({ error: error.message })
@@ -38,9 +37,6 @@ router.get('/', async (req, res) => {
 
 // POST /api/conversations/:id/share
 router.post('/:id/share', async (req, res) => {
-  // No sharing mechanism exists yet (no share tokens table). Returning a
-  // placeholder shareable reference for now so the frontend doesn't break;
-  // replace with real share-link generation once that feature is designed.
   res.json({ id: req.params.id, shared: true, url: `${req.protocol}://${req.get('host')}/shared/${req.params.id}` })
 })
 

@@ -8,3 +8,5 @@ uploads/
 index.old.js
 index_full_backup.js
 paste_the_path_it_shows_here.txt
+*.bak*
+index_js_patch*.txt
