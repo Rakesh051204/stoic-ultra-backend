@@ -123,4 +123,20 @@ router.delete('/:id', async (req, res) => {
   res.json({ success: true })
 })
 
+// GET /api/conversations/:id/messages
+router.get('/:id/messages', async (req, res) => {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('*')
+    .eq('session_id', req.params.id)
+    .order('created_at', { ascending: true })
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({
+    messages: (data || []).map(m => ({
+      id: m.id, role: m.role, content: m.content,
+      sources: m.sources || [], images: m.images || [],
+    })),
+  })
+})
+
 export default router

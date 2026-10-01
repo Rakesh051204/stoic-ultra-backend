@@ -40,24 +40,25 @@ function setCached(key, value) {
 
 // --- SearXNG JSON API ---
 export async function searxngSearch(query, maxResults = 8) {
-  const { data } = await axios.get(`${SEARXNG_URL}/search`, {
-    params: {
-      q: query,
-      format: 'json',
-      categories: 'general',
-    },
-    timeout: 8000,
-  });
-
-  const results = (data?.results || [])
-    .slice(0, maxResults)
-    .map((r) => ({
-      title: r.title,
-      url: r.url,
-      snippet: r.content || '',
-    }));
-
-  return results;
+  const pages = Math.min(Math.ceil(maxResults / 10), 4)
+  const lists = await Promise.all(
+    Array.from({ length: pages }, (_, i) =>
+      axios.get(`${SEARXNG_URL}/search`, {
+        params: { q: query, format: 'json', categories: 'general', pageno: i + 1 },
+        timeout: 8000,
+      }).then((r) => r.data?.results || []).catch(() => [])
+    )
+  )
+  const seen = new Set()
+  const results = []
+  for (const list of lists) {
+    for (const r of list) {
+      if (!r.url || seen.has(r.url)) continue
+      seen.add(r.url)
+      results.push({ title: r.title, url: r.url, snippet: r.content || '' })
+    }
+  }
+  return results.slice(0, maxResults)
 }
 
 // --- Jina AI Reader: turns any URL into clean markdown/text, free, no key ---

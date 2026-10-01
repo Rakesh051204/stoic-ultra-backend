@@ -1,4 +1,4 @@
-﻿import express from 'express'
+import express from 'express'
 import crypto from 'crypto'
 import { saveConnector, getConnector, listConnectors, deleteConnector } from '../lib/connectorsStore.js'
 
@@ -78,10 +78,10 @@ router.get('/github/callback', async (req, res) => {
       scope: tokenData.scope,
       providerUsername: githubUser.login,
     })
-    res.redirect(`${process.env.FRONTEND_URL}/connectors?connected=github`)
+    res.redirect(`${process.env.FRONTEND_URL}/plugins?connected=github`)
   } catch (err) {
     console.error('GitHub OAuth callback error:', err)
-    res.redirect(`${process.env.FRONTEND_URL}/connectors?error=github`)
+    res.redirect(`${process.env.FRONTEND_URL}/plugins?error=github`)
   }
 })
 
@@ -150,10 +150,10 @@ router.get('/notion/callback', async (req, res) => {
       scope: null,
       providerUsername: tokenData.workspace_name || tokenData.owner?.user?.name || null,
     })
-    res.redirect(`${process.env.FRONTEND_URL}/connectors?connected=notion`)
+    res.redirect(`${process.env.FRONTEND_URL}/plugins?connected=notion`)
   } catch (err) {
     console.error('Notion OAuth callback error:', err)
-    res.redirect(`${process.env.FRONTEND_URL}/connectors?error=notion`)
+    res.redirect(`${process.env.FRONTEND_URL}/plugins?error=notion`)
   }
 })
 
@@ -209,10 +209,10 @@ router.get('/slack/callback', async (req, res) => {
       scope: tokenData.scope,
       providerUsername: tokenData.team?.name || null,
     })
-    res.redirect(`${process.env.FRONTEND_URL}/connectors?connected=slack`)
+    res.redirect(`${process.env.FRONTEND_URL}/plugins?connected=slack`)
   } catch (err) {
     console.error('Slack OAuth callback error:', err)
-    res.redirect(`${process.env.FRONTEND_URL}/connectors?error=slack`)
+    res.redirect(`${process.env.FRONTEND_URL}/plugins?error=slack`)
   }
 })
 // ---- shared ----

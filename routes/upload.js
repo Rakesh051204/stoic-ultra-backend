@@ -62,6 +62,10 @@ async function getPdfParseFn() {
 // ─── other processors ─────────────────────────────────────────────
 import mammoth from 'mammoth';
 import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
+import ffprobeStatic from 'ffprobe-static';
+ffmpeg.setFfmpegPath(ffmpegStatic);
+ffmpeg.setFfprobePath(ffprobeStatic.path);
 import AdmZip from 'adm-zip';
 
 const router = express.Router();

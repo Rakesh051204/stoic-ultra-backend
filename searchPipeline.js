@@ -1,4 +1,4 @@
-﻿import { search as searxngSearch } from './services/webSearchService.js';
+import { search as searxngSearch } from './services/webSearchService.js';
 import { searchImages } from './services/imageService.js';
 import { quickFact } from './services/wikipediaService.js';
 
@@ -15,7 +15,7 @@ export async function runSearch(searchQuery, mode = 'balanced') {
   const extractFullText = mode === 'quality';
   const searchPromises = queries.map((q) =>
     searxngSearch(q, {
-      maxResults: mode === 'quality' ? 14 : 10,
+      maxResults: mode === 'quality' ? 40 : 30,
       extractFullText,
       extractTopN: extractFullText ? 4 : 0,
     }).catch((err) => {
