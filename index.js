@@ -3,6 +3,7 @@ import fs from 'fs'
 dns.setDefaultResultOrder('ipv4first')
 import express from 'express'
 import { checkSearxngHealth } from './services/webSearchService.js'
+import { searchVideos, wantsVideos } from './services/videoService.js'
 import { runSearch } from './searchPipeline.js'
 import { detectLanguageSwitch } from './languageIntent.js'
 import cors from 'cors'
@@ -557,8 +558,8 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
     // ------------------------------------------------------------------------
 
     send('thinking', { text: 'Understanding your question' })
-    const hasImageUpload = getAttachments(sessionId).some(a => a.type === 'image')
-    send('thinking', { text: hasImageUpload ? 'Looking at your image' : 'Searching the web' })
+    const hasImageUpload = getAttachments(sessionId).length > 0
+    send('thinking', { text: hasImageUpload ? 'Reading your file' : 'Searching the web' })
 
     const searchQuery = resolveSearchQuery(message, sessionId)
     const { sources, images } = ((CODE_TASK_RE.test(message) || hasImageUpload) ? { sources: [], images: [] } : await runSearch(searchQuery, 'balanced'))
@@ -567,6 +568,10 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
 
     send('sources', { sources })
     send('images', { images: shouldShowImages(message) ? images : [] })
+    if (!hasImageUpload && wantsVideos(message)) {
+      const videos = await searchVideos(searchQuery, 4)
+      if (videos.length) send('videos', { videos })
+    }
 
     // NEW: job-links feature â€” only fires for job-intent queries
     if (isJobQuery(message)) {
@@ -643,6 +648,10 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
       }
     }
 
+    const ATS_RE = /\b(ats|resume score|rate (my|this) (resume|cv)|review (my|this) (resume|cv)|resume (check|review))\b/i
+    if (ATS_RE.test(message) && textAttachments.length > 0) {
+      promptMessages.push({ role: 'system', content: 'The user wants an ATS review of the attached resume. Reply in this exact structure: 1) "ATS Score: NN/100" on the first line. 2) A short breakdown with a score for each: Keywords, Formatting and parsing, Sections and structure, Impact and metrics, Role match. 3) "Top fixes" as 5 numbered, specific changes. 4) "Missing keywords" as a comma list. If no job description was given, score against the role the resume targets and say so in one line. Be honest and strict, never inflate the score.' })
+    }
     clearAttachments(sessionId)
 
     if (CODE_TASK_RE.test(message)) { promptMessages.unshift({ role: 'system', content: 'For coding requests, always give the complete working solution in a fenced code block first, then a short explanation. Never answer a coding request with search results or links.' }) }
