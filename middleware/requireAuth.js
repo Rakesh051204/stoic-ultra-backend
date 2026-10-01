@@ -12,6 +12,7 @@
 // Requires your Supabase client already set up server-side
 // (the same one your services use), imported here.
 
+import 'dotenv/config';
 import { createClient } from "@supabase/supabase-js";
 
 // Server-side Supabase client using the SERVICE ROLE key.
@@ -19,7 +20,7 @@ import { createClient } from "@supabase/supabase-js";
 // NEVER expose it to the frontend.
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)
 );
 
 export async function requireAuth(req, res, next) {
