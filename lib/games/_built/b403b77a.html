@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Undead Rush</title>
+<style>
+html,body{margin:0;height:100%;background:#0d0d0c;color:#f2f2f0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+#box{position:relative;width:min(100vw,calc(100vh * 1.6));aspect-ratio:8/5;max-height:100%}
+canvas{width:100%;height:100%;display:block;background:#15151a;border-radius:10px}
+#hud{position:absolute;left:12px;right:12px;top:8px;display:flex;justify-content:space-between;font-weight:700;font-size:clamp(12px,2.4vw,18px);pointer-events:none;text-shadow:0 1px 4px #000}
+.ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:#0d0d0ce6;border-radius:10px;padding:16px}
+.ov[hidden]{display:none}
+h1{margin:0 0 6px;font-size:clamp(22px,5vw,40px)}
+.ov p{margin:0 0 14px;opacity:.8;font-size:clamp(12px,2.4vw,16px)}
+.go{border:0;border-radius:10px;padding:12px 26px;font:700 16px system-ui,sans-serif;background:#7C83DB;color:#0d0d0c;cursor:pointer}
+.go:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#pad{position:absolute;left:0;right:0;bottom:6px;display:none;justify-content:space-between;padding:0 10px;pointer-events:none}
+#pad div{display:flex;gap:8px;pointer-events:auto}
+#pad button{width:clamp(44px,11vw,64px);height:clamp(44px,11vw,64px);border-radius:50%;border:2px solid #ffffff66;background:#ffffff1f;color:#fff;font:700 20px system-ui,sans-serif}
+@media (pointer:coarse){#pad{display:flex}}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="box">
+<canvas id="cv" width="800" height="500"></canvas>
+<div id="hud"><span>Score <b id="sc">0</b></span><span>Best <b id="bs">0</b></span></div>
+<div id="pad"><div><button id="pl" aria-label="Left">&#9664;</button><button id="pr" aria-label="Right">&#9654;</button></div><div><button id="pu" aria-label="Up">&#9650;</button><button id="pd" aria-label="Down">&#9660;</button><button id="pa" aria-label="Action">A</button></div></div>
+<div class="ov" id="menu"><div><h1>Undead Rush</h1><p>Survive the endless horde</p><p>Move with arrows, shoot with space or tap</p><button class="go" id="start">Play</button></div></div>
+<div class="ov" id="over" hidden><div><h1>Game over</h1><p id="fin"></p><button class="go" id="again">Play again</button></div></div>
+</div></div>
+<script>
+var __K={};
+const ctx=document.getElementById('cv').getContext('2d'),W=800,H=500;
+const keys={left:0,right:0,up:0,down:0,action:0,pressed:{left:0,right:0,up:0,down:0,action:0}};
+const ptr={x:400,y:250,down:0,clicked:0};
+let score=0;
+const rand=(a,b)=>a+Math.random()*(b-a),randi=(a,b)=>Math.floor(rand(a,b+1)),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+const addScore=n=>{score+=(n===undefined?1:n);__K.hud()};
+const gameOver=()=>__K.over();
+const beep=(f,d)=>__K.beep(f,d);
+//GAME: Undead Rush | Survive the endless horde | Move with arrows, shoot with space or tap
+// top‑level state --------------------------------------------------------------
+let player, bullets, zombies, fastZombies, barrels, powerUps, particles;
+let wave, waveTimer, spawnCooldown;
+let shakeTime, shakeX, shakeY;
+let intro; // seconds left for story intro
+
+// constants --------------------------------------------------------------------
+const PLAYER_SPEED = 200;
+const PLAYER_RELOAD = 0.2;
+const BULLET_SPEED = 500;
+const BULLET_LIFE = 1.5;
+const ZOMBIE_SPEED = 80;
+const FAST_ZOMBIE_SPEED = 140;
+const BARREL_RADIUS = 15;
+const POWERUP_SIZE = 20;
+const MAX_HEALTH = 5;
+const WAVE_DURATION = 15; // seconds per wave before increase
+const SPAWN_BASE = 0.8; // base spawn interval
+
+// init -------------------------------------------------------------------------
+function init(){
+    player = {x:W/2, y:H/2, angle:0, health:MAX_HEALTH, reload:0};
+    bullets = [];
+    zombies = [];
+    fastZombies = [];
+    barrels = [];
+    powerUps = [];
+    particles = [];
+    wave = 1;
+    waveTimer = 0;
+    spawnCooldown = 0;
+    shakeTime = 0;
+    shakeX = 0;
+    shakeY = 0;
+    intro = 3;
+    // clear score (read‑only, assume external)
+}
+
+// utils ------------------------------------------------------------------------
+function addParticle(x,y,dx,dy,color,size,life){
+    particles.push({x,y,dx,dy,color,size,life});
+}
+function spawnZombie(){
+    const side = randi(0,3);
+    let x,y;
+    if(side===0){ x= -30; y=rand(0,H); }
+    else if(side===1){ x= W+30; y=rand(0,H); }
+    else if(side===2){ x=rand(0,W); y= -30; }
+    else { x=rand(0,W); y= H+30; }
+    zombies.push({x,y,w:30,h:40,life:2});
+}
+function spawnFastZombie(){
+    const side = randi(0,3);
+    let x,y;
+    if(side===0){ x= -30; y=rand(0,H); }
+    else if(side===1){ x= W+30; y=rand(0,H); }
+    else if(side===2){ x=rand(0,W); y= -30; }
+    else { x=rand(0,W); y= H+30; }
+    fastZombies.push({x,y,w:25,h:35,life:1});
+}
+function spawnBarrel(){
+    const x = rand(50,W-50);
+    const y = rand(50,H-50);
+    barrels.push({x,y,exploded:false});
+}
+function spawnPowerUp(){
+    const types = ['health','ammo','speed'];
+    const type = types[randi(0,types.length-1)];
+    const x = rand(50,W-50);
+    const y = rand(50,H-50);
+    powerUps.push({x,y,type,used:false});
+}
+function screenShake(dt){
+    if(shakeTime>0){
+        shakeTime-=dt;
+        shakeX = (rand(-1,1))*shakeTime*5;
+        shakeY = (rand(-1,1))*shakeTime*5;
+    }else{
+        shakeX=0; shakeY=0;
+    }
+}
+
+// update -----------------------------------------------------------------------
+function update(dt){
+    // intro timer --------------------------------------------------------------
+    if(intro>0){
+        intro-=dt;
+        return;
+    }
+    // player movement -----------------------------------------------------------
+    let mvx=0, mvy=0;
+    if(keys.left) mvx-=1;
+    if(keys.right) mvx+=1;
+    if(keys.up) mvy-=1;
+    if(keys.down) mvy+=1;
+    if(mvx||mvy){
+        const len = Math.hypot(mvx,mvy);
+        mvx/=len; mvy/=len;
+        player.x+=mvx*PLAYER_SPEED*dt;
+        player.y+=mvy*PLAYER_SPEED*dt;
+        player.x=clamp(player.x,0,W);
+        player.y=clamp(player.y,0,H);
+    }
+    // aim -----------------------------------------------------------------------
+    const aimX = ptr.down||keys.pressed.action ? ptr.x : player.x;
+    const aimY = ptr.down||keys.pressed.action ? ptr.y : player.y;
+    player.angle = Math.atan2(aimY-player.y, aimX-player.x);
+    // shooting ------------------------------------------------------------------
+    player.reload-=dt;
+    const shouldShoot = (keys.pressed.action || ptr.clicked);
+    if(shouldShoot && player.reload<=0){
+        player.reload=PLAYER_RELOAD;
+        const bx = player.x + Math.cos(player.angle)*20;
+        const by = player.y + Math.sin(player.angle)*20;
+        bullets.push({x:bx, y:by, vx:Math.cos(player.angle)*BULLET_SPEED, vy:Math.sin(player.angle)*BULLET_SPEED, life:BULLET_LIFE});
+        beep(400,0.05);
+    }
+    // bullets --------------------------------------------------------------------
+    for(let i=bullets.length-1;i>=0;i--){
+        const b=bullets[i];
+        b.x+=b.vx*dt; b.y+=b.vy*dt;
+        b.life-=dt;
+        if(b.x<0||b.x>W||b.y<0||b.y>H||b.life<=0) bullets.splice(i,1);
+    }
+    // spawn enemies -------------------------------------------------------------
+    waveTimer+=dt;
+    if(waveTimer>WAVE_DURATION){
+        wave++;
+        waveTimer=0;
+    }
+    const spawnRate = SPAWN_BASE/(wave*0.5);
+    spawnCooldown-=dt;
+    if(spawnCooldown<=0){
+        spawnCooldown=spawnRate;
+        // basic zombie
+        if(rand(0,1)<0.7) spawnZombie();
+        // fast zombie
+        if(rand(0,1)<0.3) spawnFastZombie();
+        // occasional barrel
+        if(rand(0,1)<0.1) spawnBarrel();
+        // occasional power‑up
+        if(rand(0,1)<0.05) spawnPowerUp();
+    }
+    // zombie movement -----------------------------------------------------------
+    function moveEntity(e, speed){
+        const dx = player.x - e.x;
+        const dy = player.y - e.y;
+        const dist = Math.hypot(dx,dy);
+        e.x += (dx/dist)*speed*dt;
+        e.y += (dy/dist)*speed*dt;
+    }
+    for(let i=zombies.length-1;i>=0;i--){
+        const z=zombies[i];
+        moveEntity(z,ZOMBIE_SPEED);
+        // collision with player
+        if(hit({x:z.x,y:z.y,w:z.w,h:z.h},{x:player.x-10,y:player.y-10,w:20,h:20})){
+            player.health--;
+            shakeTime=0.3;
+            addParticle(player.x,player.y,rand(-50,50),rand(-50,50),'red',3,0.3);
+            zombies.splice(i,1);
+            if(player.health<=0) gameOver();
+        }
+    }
+    for(let i=fastZombies.length-1;i>=0;i--){
+        const f=fastZombies[i];
+        moveEntity(f,FAST_ZOMBIE_SPEED);
+        if(hit({x:f.x,y:f.y,w:f.w,h:f.h},{x:player.x-10,y:player.y-10,w:20,h:20})){
+            player.health--;
+            shakeTime=0.4;
+            addParticle(player.x,player.y,rand(-80,80),rand(-80,80),'red',3,0.3);
+            fastZombies.splice(i,1);
+            if(player.health<=0) gameOver();
+        }
+    }
+    // barrel explosion -----------------------------------------------------------
+    for(let i=barrels.length-1;i>=0;i--){
+        const b=barrels[i];
+        if(b.exploded) continue;
+        if(hit({x:b.x-BARREL_RADIUS,y:b.y-BARREL_RADIUS,w:BARREL_RADIUS*2,h:BARREL_RADIUS*2},
+               {x:player.x-10,y:player.y-10,w:20,h:20})){
+            b.exploded=true;
+            shakeTime=0.5;
+            // damage nearby zombies
+            const radius=80;
+            for(let j=zombies.length-1;j>=0;j--){
+                const z=zombies[j];
+                if(Math.hypot(z.x-b.x,z.y-b.y)<radius){
+                    zombies.splice(j,1);
+                    addScore(10);
+                }
+            }
+            for(let j=fastZombies.length-1;j>=0;j--){
+                const f=fastZombies[j];
+                if(Math.hypot(f.x-b.x,f.y-b.y)<radius){
+                    fastZombies.splice(j,1);
+                    addScore(15);
+                }
+            }
+            // particles
+            for(let p=0;p<20;p++){
+                addParticle(b.x,b.y,rand(-200,200),rand(-200,200),'orange',4,0.5);
+            }
+        }
+    }
+    // bullet collisions ---------------------------------------------------------
+    for(let i=bullets.length-1;i>=0;i--){
+        const b=bullets[i];
+        // zombies
+        for(let j=zombies.length-1;j>=0;j--){
+            const z=zombies[j];
+            if(hit({x:z.x,y:z.y,w:z.w,h:z.h},{x:b.x-2,y:b.y-2,w:4,h:4})){
+                z.life--;
+                addParticle(b.x,b.y,rand(-30,30),rand(-30,30),'red',2,0.2);
+                if(z.life<=0){
+                    zombies.splice(j,1);
+                    addScore(5);
+                }
+                bullets.splice(i,1);
+                break;
+            }
+        }
+        // fast zombies
+        if(i>=bullets.length) continue;
+        for(let j=fastZombies.length-1;j>=0;j--){
+            const f=fastZombies[j];
+            if(hit({x:f.x,y:f.y,w:f.w,h:f.h},{x:b.x-2,y:b.y-2,w:4,h:4})){
+                f.life--;
+                addParticle(b.x,b.y,rand(-30,30),rand(-30,30),'red',2,0.2);
+                if(f.life<=0){
+                    fastZombies.splice(j,1);
+                    addScore(8);
+                }
+                bullets.splice(i,1);
+                break;
+            }
+        }
+    }
+    // power‑up collection --------------------------------------------------------
+    for(let i=powerUps.length-1;i>=0;i--){
+        const p=powerUps[i];
+        if(hit({x:p.x-POWERUP_SIZE/2,y:p.y-POWERUP_SIZE/2,w:POWERUP_SIZE,h:POWERUP_SIZE},
+               {x:player.x-10,y:player.y-10,w:20,h:20})){
+            if(p.type==='health' && player.health<MAX_HEALTH) player.health++;
+            else if(p.type==='ammo') player.reload = Math.max(0, player.reload-0.1);
+            else if(p.type==='speed') PLAYER_SPEED+=20;
+            addParticle(p.x,p.y,0,0,'green',6,0.4);
+            powerUps.splice(i,1);
+        }
+    }
+    // particles update -----------------------------------------------------------
+    for(let i=particles.length-1;i>=0;i--){
+        const pt=particles[i];
+        pt.x+=pt.dx*dt;
+        pt.y+=pt.dy*dt;
+        pt.life-=dt;
+        if(pt.life<=0) particles.splice(i,1);
+    }
+    // screen shake ---------------------------------------------------------------
+    screenShake(dt);
+}
+
+// draw -------------------------------------------------------------------------
+function draw(){
+    // background ---------------------------------------------------------------
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0,'#0a0a2a');
+    grad.addColorStop(1,'#001020');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,W,H);
+    // simple stars
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    for(let i=0;i<30;i++){
+        const sx = randi(0,W);
+        const sy = randi(0,H);
+        ctx.fillRect(sx,sy,2,2);
+    }
+    ctx.restore();
+    // apply screen shake --------------------------------------------------------
+    ctx.save();
+    ctx.translate(shakeX,shakeY);
+    // draw barrels --------------------------------------------------------------
+    barrels.forEach(b=>{
+        if(b.exploded) return;
+        ctx.beginPath();
+        ctx.arc(b.x,b.y,BARREL_RADIUS,0,Math.PI*2);
+        ctx.fillStyle='#8b4513';
+        ctx.fill();
+        ctx.strokeStyle='#5c3317';
+        ctx.stroke();
+    });
+    // draw power‑ups -------------------------------------------------------------
+    powerUps.forEach(p=>{
+        ctx.save();
+        ctx.translate(p.x,p.y);
+        ctx.rotate(Math.PI/4);
+        ctx.fillStyle = p.type==='health'?'#00ff00':p.type==='ammo'?'#ffff00':'#00ffff';
+        ctx.fillRect(-POWERUP_SIZE/2, -5, POWERUP_SIZE,10);
+        ctx.fillRect(-5, -POWERUP_SIZE/2,10,POWERUP_SIZE);
+        ctx.restore();
+    });
+    // draw zombies ---------------------------------------------------------------
+    zombies.forEach(z=>{
+        ctx.save();
+        ctx.translate(z.x+z.w/2, z.y+z.h/2);
+        ctx.fillStyle='#4caf50';
+        ctx.fillRect(-z.w/2,-z.h/2,z.w,z.h);
+        // head
+        ctx.fillStyle='#2e7d32';
+        ctx.beginPath();
+        ctx.arc(0,-z.h/2+5,8,0,Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+    });
+    fastZombies.forEach(f=>{
+        ctx.save();
+        ctx.translate(f.x+f.w/2, f.y+f.h/2);
+        ctx.fillStyle='#ff5722';
+        ctx.fillRect(-f.w/2,-f.h/2,f.w,f.h);
+        // eyes
+        ctx.fillStyle='#fff';
+        ctx.fillRect(-5,-5,4,4);
+        ctx.fillRect(1,-5,4,4);
+        ctx.restore();
+    });
+    // draw bullets ---------------------------------------------------------------
+    ctx.fillStyle='yellow';
+    bullets.forEach(b=>{
+        ctx.fillRect(b.x-2,b.y-2,4,4);
+    });
+    // draw player ---------------------------------------------------------------
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.angle);
+    // body
+    ctx.fillStyle='#2196f3';
+    ctx.fillRect(-12,-12,24,24);
+    // gun
+    ctx.fillStyle='#555';
+    ctx.fillRect(0,-4,16,8);
+    ctx.restore();
+    // draw particles -------------------------------------------------------------
+    particles.forEach(p=>{
+        ctx.fillStyle=p.color;
+        ctx.globalAlpha = Math.max(0,p.life/0.5);
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+        ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    // UI ------------------------------------------------------------------------
+    // health bar
+    const barW=100, barH=12;
+    ctx.fillStyle='black';
+    ctx.fillRect(20,20,barW,barH);
+    ctx.fillStyle='red';
+    ctx.fillRect(20,20,barW*(player.health/MAX_HEALTH),barH);
+    ctx.strokeStyle='white';
+    ctx.strokeRect(20,20,barW,barH);
+    // score
+    ctx.fillStyle='white';
+    ctx.font='16px sans-serif';
+    ctx.fillText('Score: '+score, W-120, 30);
+    // wave
+    ctx.fillText('Wave: '+wave, W-120, 50);
+    // intro text ---------------------------------------------------------------
+    if(intro>0){
+        ctx.fillStyle='rgba(0,0,0,0.6)';
+        ctx.fillRect(0, H/2-40, W, 80);
+        ctx.fillStyle='white';
+        ctx.textAlign='center';
+        ctx.font='24px sans-serif';
+        ctx.fillText('Undead Rush', W/2, H/2-10);
+        ctx.font='16px sans-serif';
+        ctx.fillText('Survive the endless horde. Move with arrows, shoot with space or tap.', W/2, H/2+20);
+    }
+    ctx.restore();
+}
+(function(){
+const $=id=>document.getElementById(id),cv=ctx.canvas,TITLE=document.title;
+let state='menu',best=0,au,last=performance.now();
+try{best=+localStorage.getItem('gk.'+TITLE)||0}catch(e){}
+$('bs').textContent=best;
+__K.hud=()=>{$('sc').textContent=Math.floor(score)};
+__K.beep=(f,d)=>{try{au=au||new(window.AudioContext||window.webkitAudioContext)();const o=au.createOscillator(),g=au.createGain();o.frequency.value=f||440;g.gain.value=.05;o.connect(g);g.connect(au.destination);o.start();o.stop(au.currentTime+(d||.08))}catch(e){}};
+__K.over=()=>{if(state!=='play')return;state='over';const s=Math.floor(score);if(s>best){best=s;try{localStorage.setItem('gk.'+TITLE,s)}catch(e){}}
+$('bs').textContent=best;$('fin').textContent='Score '+s+'   Best '+best;__K.beep(120,.3);setTimeout(()=>{$('over').hidden=false;$('again').focus()},500)};
+function begin(){if(state==='play')return;state='play';score=0;__K.hud();$('menu').hidden=true;$('over').hidden=true;try{init()}catch(e){console.error(e)}}
+const KM={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down',' ':'action',z:'action',Z:'action',x:'action',X:'action'};
+addEventListener('keydown',e=>{const k=KM[e.key];if(k){if(!keys[k])keys.pressed[k]=1;keys[k]=1;e.preventDefault();if(k==='action'&&state!=='play')begin()}else if(e.key==='Enter'&&state!=='play')begin()});
+addEventListener('keyup',e=>{const k=KM[e.key];if(k)keys[k]=0});
+addEventListener('blur',()=>{['left','right','up','down','action'].forEach(k=>{keys[k]=0})});
+function bind(id,k){const b=$(id);b.addEventListener('pointerdown',e=>{e.preventDefault();if(!keys[k])keys.pressed[k]=1;keys[k]=1});['pointerup','pointercancel','pointerleave'].forEach(n=>b.addEventListener(n,()=>{keys[k]=0}))}
+bind('pl','left');bind('pr','right');bind('pu','up');bind('pd','down');bind('pa','action');
+function pp(e){const r=cv.getBoundingClientRect();ptr.x=(e.clientX-r.left)*W/r.width;ptr.y=(e.clientY-r.top)*H/r.height}
+cv.addEventListener('pointerdown',e=>{pp(e);ptr.down=1;ptr.clicked=1});cv.addEventListener('pointermove',pp);
+addEventListener('pointerup',()=>{ptr.down=0});
+$('start').onclick=begin;$('again').onclick=begin;
+try{init()}catch(e){console.error(e)}
+function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,(t-last)/1000);last=t;
+if(state==='play'){try{update(dt)}catch(e){console.error(e)}}
+try{draw()}catch(e){console.error(e)}
+for(const k in keys.pressed)keys.pressed[k]=0;ptr.clicked=0}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

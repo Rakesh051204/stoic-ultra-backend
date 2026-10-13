@@ -1,0 +1,5 @@
+function hMat(c){return new THREE.MeshStandardMaterial({color:c,roughness:0.85})}
+function hBox(g,w,h,d,x,y,z,c){var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),hMat(c));m.position.set(x,y+h/2,z);g.add(m);return m}
+function hCyl(g,r,h,x,y,z,c){var m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,24),hMat(c));m.position.set(x,y+h/2,z);g.add(m);return m}
+function hRoof(g,w,d,rise,x,y,z,c,ridgeX){var across=ridgeX?d:w;var len=ridgeX?w:d;var r=across/1.7321;var geo=new THREE.CylinderGeometry(r,r,len,3);geo.rotateX(-Math.PI/2);var m=new THREE.Mesh(geo,hMat(c));var s=rise/(1.5*r);m.scale.set(1,s,1);m.position.set(x,y+0.5*r*s,z);if(ridgeX)m.rotation.y=Math.PI/2;g.add(m);return m}
+function hWin(g,x,y,z,w,h,face,c){var s=face.charAt(0)==='-'?-1:1;var ax=face.replace('-','');var m;if(ax==='z'){m=new THREE.Mesh(new THREE.BoxGeometry(w,h,0.08),hMat(c));m.position.set(x,y+h/2,z+s*0.04)}else{m=new THREE.Mesh(new THREE.BoxGeometry(0.08,h,w),hMat(c));m.position.set(x+s*0.04,y+h/2,z)}g.add(m);return m}

@@ -1,0 +1,6 @@
+HELPER FUNCTIONS ARE ALREADY DEFINED. Call them directly and never redefine them. g is the Group you add to.
+hBox(g,w,h,d,x,y,z,color) adds a box, y is the bottom, x and z are the center.
+hCyl(g,r,h,x,y,z,color) adds a cylinder, y is the bottom.
+hRoof(g,w,d,rise,x,y,z,color,ridgeX) adds a gable roof over a w by d footprint, y is the eave height (the top of the walls), rise is the roof height, ridgeX true means the ridge runs along X, otherwise along Z. Make w and d slightly larger than the walls for an overhang.
+hWin(g,x,y,z,w,h,face,color) adds a flat window, face is z, -z, x or -x (which wall it is on), x,y,z is the point on that wall surface and y is the window bottom.
+For houses and buildings: build each wing with hBox, put one hRoof on top of each wing with y equal to that wing wall top, add rows of hWin and a door, add a garage, chimneys and porch columns if the description has them. Never rotate roofs by hand. Keep any driveway, path or trees small and within 1.3 times the house width so the building stays the main object.

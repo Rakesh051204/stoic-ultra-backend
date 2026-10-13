@@ -25,38 +25,20 @@ const __dirname = path.dirname(__filename);
 let _pdfParseFn = null;
 async function getPdfParseFn() {
   if (_pdfParseFn) return _pdfParseFn;
-
-  try {
-    const mod = await import('pdf-parse');
-    const candidate = typeof mod.default === 'function' ? mod.default : mod;
-    if (typeof candidate === 'function') {
-      _pdfParseFn = candidate;
-      return _pdfParseFn;
-    }
-    console.warn('pdf-parse standard import resolved but was not callable:', typeof candidate);
-  } catch (err) {
-    console.warn('pdf-parse standard import failed:', err.message);
+  const mod = await import('pdf-parse');
+  if (mod.PDFParse) {
+    _pdfParseFn = async (buf) => {
+      const parser = new mod.PDFParse({ data: new Uint8Array(buf) });
+      try {
+        const r = await parser.getText();
+        return { text: r.text || '', numpages: r.total || 0 };
+      } finally { try { await parser.destroy(); } catch {} }
+    };
+    return _pdfParseFn;
   }
-
-  try {
-    const entry = require.resolve('pdf-parse');
-    const libPath = entry.replace(/index\.js$/, 'lib/pdf-parse.js');
-    const mod = require(libPath);
-    const candidate = typeof mod === 'function' ? mod : mod.default;
-    if (typeof candidate === 'function') {
-      _pdfParseFn = candidate;
-      return _pdfParseFn;
-    }
-    console.error(
-      'pdf-parse lib fallback did not yield a function. Shape:',
-      typeof mod,
-      mod && typeof mod === 'object' ? Object.keys(mod) : mod
-    );
-  } catch (err) {
-    console.warn('pdf-parse lib fallback failed:', err.message);
-  }
-
-  throw new Error('Could not resolve a callable pdf-parse function — check `npm ls pdf-parse` for the installed version.');
+  const fn = typeof mod.default === 'function' ? mod.default : mod;
+  if (typeof fn === 'function') { _pdfParseFn = fn; return fn; }
+  throw new Error('pdf-parse: unsupported export shape');
 }
 
 // ─── other processors ─────────────────────────────────────────────
@@ -73,7 +55,8 @@ const router = express.Router();
 // ─── storage dirs ──────────────────────────────────────────────────
 const UPLOAD_ROOT = path.join(__dirname, '..', 'uploads');
 const KEYFRAME_ROOT = path.join(UPLOAD_ROOT, 'keyframes');
-for (const dir of [UPLOAD_ROOT, KEYFRAME_ROOT]) {
+const KEEP_ROOT = path.join(UPLOAD_ROOT, 'keep');
+for (const dir of [UPLOAD_ROOT, KEYFRAME_ROOT, KEEP_ROOT]) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
@@ -364,6 +347,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     };
 
     getSessionMap(sessionId).set(id, record);
+    if (category !== 'video' && category !== 'audio') { try { fs.copyFileSync(filePath, path.join(KEEP_ROOT, id + path.extname(file.originalname))) } catch (e) { console.warn('keep copy failed:', e.message) } }
 
     res.json({
       success: true,
@@ -378,6 +362,14 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     console.error('Upload route failed:', err);
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+router.get('/api/files/:id', (req, res) => {
+  const id = String(req.params.id).replace(/[^a-zA-Z0-9-]/g, '');
+  const name = id ? fs.readdirSync(KEEP_ROOT).find((n) => n.startsWith(id)) : null;
+  if (!name) return res.status(404).json({ error: 'File not found' });
+  res.setHeader('Content-Disposition', 'inline');
+  res.sendFile(path.join(KEEP_ROOT, name));
 });
 
 router.delete('/upload/:id', (req, res) => {

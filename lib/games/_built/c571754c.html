@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Agent Vector</title>
+<style>
+html,body{margin:0;height:100%;background:#0d0d0c;color:#f2f2f0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+#box{position:relative;width:min(100vw,calc(100vh * 1.6));aspect-ratio:8/5;max-height:100%}
+canvas{width:100%;height:100%;display:block;background:#15151a;border-radius:10px}
+#hud{position:absolute;left:12px;right:12px;top:8px;display:flex;justify-content:space-between;font-weight:700;font-size:clamp(12px,2.4vw,18px);pointer-events:none;text-shadow:0 1px 4px #000}
+.ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:#0d0d0ce6;border-radius:10px;padding:16px}
+.ov[hidden]{display:none}
+h1{margin:0 0 6px;font-size:clamp(22px,5vw,40px)}
+.ov p{margin:0 0 14px;opacity:.8;font-size:clamp(12px,2.4vw,16px)}
+.go{border:0;border-radius:10px;padding:12px 26px;font:700 16px system-ui,sans-serif;background:#7C83DB;color:#0d0d0c;cursor:pointer}
+.go:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#pad{position:absolute;left:0;right:0;bottom:6px;display:none;justify-content:space-between;padding:0 10px;pointer-events:none}
+#pad div{display:flex;gap:8px;pointer-events:auto}
+#pad button{width:clamp(44px,11vw,64px);height:clamp(44px,11vw,64px);border-radius:50%;border:2px solid #ffffff66;background:#ffffff1f;color:#fff;font:700 20px system-ui,sans-serif}
+@media (pointer:coarse){#pad{display:flex}}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="box">
+<canvas id="cv" width="800" height="500"></canvas>
+<div id="hud"><span>Score <b id="sc">0</b></span><span>Best <b id="bs">0</b></span></div>
+<div id="pad"><div><button id="pl" aria-label="Left">&#9664;</button><button id="pr" aria-label="Right">&#9654;</button></div><div><button id="pu" aria-label="Up">&#9650;</button><button id="pd" aria-label="Down">&#9660;</button><button id="pa" aria-label="Action">A</button></div></div>
+<div class="ov" id="menu"><div><h1>Agent Vector</h1><p>Stealth dash and disable drones</p><p>Arrow keys move, space to hack, click to dash</p><button class="go" id="start">Play</button></div></div>
+<div class="ov" id="over" hidden><div><h1>Game over</h1><p id="fin"></p><button class="go" id="again">Play again</button></div></div>
+</div></div>
+<script>
+var __K={};
+const ctx=document.getElementById('cv').getContext('2d'),W=800,H=500;
+const keys={left:0,right:0,up:0,down:0,action:0,pressed:{left:0,right:0,up:0,down:0,action:0}};
+const ptr={x:400,y:250,down:0,clicked:0};
+let score=0;
+const rand=(a,b)=>a+Math.random()*(b-a),randi=(a,b)=>Math.floor(rand(a,b+1)),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+const addScore=n=>{score+=(n===undefined?1:n);__K.hud()};
+const gameOver=()=>__K.over();
+const beep=(f,d)=>__K.beep(f,d);
+//GAME: Agent Vector | Stealth dash and disable drones | Arrow keys move, space to hack, click to dash
+function init(){
+    // player setup
+    player = {x:W/2-15,y:H/2-15,w:30,h:30,spd:150,dx:0,dy:0,dashSpeed:400,dashTime:0,dashDur:0.15,dashCooldown:0,dashMaxCooldown:1.2};
+    // drone list
+    drones = [];
+    // timers
+    spawnTimer = 0;
+    spawnInterval = 2.0;
+    difficultyTimer = 0;
+    // reset score handled externally
+}
+function update(dt){
+    // ---------- PLAYER MOVEMENT ----------
+    let ax=0, ay=0;
+    if(keys.left) ax -= 1;
+    if(keys.right) ax += 1;
+    if(keys.up) ay -= 1;
+    if(keys.down) ay += 1;
+    // normalize diagonal
+    if(ax!==0||ay!==0){
+        let len=Math.hypot(ax,ay);
+        ax/=len; ay/=len;
+    }
+    // dash handling
+    if(player.dashCooldown<=0 && (ptr.clicked || keys.pressed.action && false)){
+        player.dashTime = player.dashDur;
+        player.dashCooldown = player.dashMaxCooldown;
+        ptr.clicked = false;
+    }
+    if(player.dashTime>0){
+        player.dx = ax*player.dashSpeed;
+        player.dy = ay*player.dashSpeed;
+        player.dashTime -= dt;
+    }else{
+        player.dx = ax*player.spd;
+        player.dy = ay*player.spd;
+    }
+    // apply movement
+    player.x += player.dx*dt;
+    player.y += player.dy*dt;
+    // keep inside bounds
+    player.x = clamp(player.x,0,W-player.w);
+    player.y = clamp(player.y,0,H-player.h);
+    // dash cooldown decay
+    if(player.dashCooldown>0) player.dashCooldown -= dt;
+    // ---------- DRONE SPAWN ----------
+    spawnTimer -= dt;
+    if(spawnTimer<=0){
+        // create new drone
+        let r = 12;
+        let d = {
+            x: rand(0,W), y: rand(0,H),
+            dx: rand(-1,1), dy: rand(-1,1),
+            spd: 80 + difficultyTimer*10,
+            r: r,
+            alive:true,
+            hackTimer:0
+        };
+        // normalize direction
+        let len=Math.hypot(d.dx,d.dy);
+        d.dx/=len; d.dy/=len;
+        drones.push(d);
+        spawnTimer = Math.max(0.4, spawnInterval - difficultyTimer*0.05);
+    }
+    // ---------- INCREASE DIFFICULTY ----------
+    difficultyTimer += dt;
+    // ---------- DRONE MOVEMENT ----------
+    for(let i=drones.length-1;i>=0;i--){
+        let d = drones[i];
+        if(!d.alive){
+            drones.splice(i,1);
+            continue;
+        }
+        d.x += d.dx*d.spd*dt;
+        d.y += d.dy*d.spd*dt;
+        // bounce off walls
+        if(d.x<d.r||d.x>W-d.r) d.dx*=-1;
+        if(d.y<d.r||d.y>H-d.r) d.dy*=-1;
+        // collision with player
+        if(hit({x:player.x,y:player.y,w:player.w,h:player.h},
+               {x:d.x-d.r,y:d.y-d.r,w:d.r*2,h:d.r*2})){
+            gameOver();
+            return;
+        }
+    }
+    // ---------- HACK ACTION ----------
+    if(keys.pressed.action){
+        for(let d of drones){
+            if(!d.alive) continue;
+            let dist=Math.hypot((player.x+player.w/2)-(d.x),(player.y+player.h/2)-(d.y));
+            if(dist<40){
+                d.alive=false;
+                addScore(10);
+                beep(800,0.08);
+                break;
+            }
+        }
+    }
+}
+function draw(){
+    // background
+    ctx.fillStyle="#111";
+    ctx.fillRect(0,0,W,H);
+    // player
+    let grad=ctx.createLinearGradient(player.x,player.y,player.x+player.w,player.y+player.h);
+    grad.addColorStop(0,"#0ff");
+    grad.addColorStop(1,"#00a");
+    ctx.fillStyle=grad;
+    ctx.fillRect(player.x,player.y,player.w,player.h);
+    // dash cooldown indicator
+    if(player.dashCooldown>0){
+        ctx.fillStyle="rgba(255,255,0,0.3)";
+        let cw=player.w* (1-player.dashCooldown/player.dashMaxCooldown);
+        ctx.fillRect(player.x,player.y+player.h-5,cw,5);
+    }
+    // drones
+    for(let d of drones){
+        ctx.beginPath();
+        ctx.arc(d.x,d.y,d.r,0,Math.PI*2);
+        ctx.fillStyle="#c33";
+        ctx.fill();
+        ctx.strokeStyle="#600";
+        ctx.stroke();
+    }
+    // UI score
+    ctx.fillStyle="#fff";
+    ctx.font="16px sans-serif";
+    ctx.fillText("Score: "+score,10,20);
+    // dash ready text
+    if(player.dashCooldown<=0){
+        ctx.fillStyle="#ff0";
+        ctx.fillText("Dash Ready!",10,40);
+    }
+}
+(function(){
+const $=id=>document.getElementById(id),cv=ctx.canvas,TITLE=document.title;
+let state='menu',best=0,au,last=performance.now();
+try{best=+localStorage.getItem('gk.'+TITLE)||0}catch(e){}
+$('bs').textContent=best;
+__K.hud=()=>{$('sc').textContent=Math.floor(score)};
+__K.beep=(f,d)=>{try{au=au||new(window.AudioContext||window.webkitAudioContext)();const o=au.createOscillator(),g=au.createGain();o.frequency.value=f||440;g.gain.value=.05;o.connect(g);g.connect(au.destination);o.start();o.stop(au.currentTime+(d||.08))}catch(e){}};
+__K.over=()=>{if(state!=='play')return;state='over';const s=Math.floor(score);if(s>best){best=s;try{localStorage.setItem('gk.'+TITLE,s)}catch(e){}}
+$('bs').textContent=best;$('fin').textContent='Score '+s+'   Best '+best;__K.beep(120,.3);setTimeout(()=>{$('over').hidden=false;$('again').focus()},500)};
+function begin(){if(state==='play')return;state='play';score=0;__K.hud();$('menu').hidden=true;$('over').hidden=true;try{init()}catch(e){console.error(e)}}
+const KM={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down',' ':'action',z:'action',Z:'action',x:'action',X:'action'};
+addEventListener('keydown',e=>{const k=KM[e.key];if(k){if(!keys[k])keys.pressed[k]=1;keys[k]=1;e.preventDefault();if(k==='action'&&state!=='play')begin()}else if(e.key==='Enter'&&state!=='play')begin()});
+addEventListener('keyup',e=>{const k=KM[e.key];if(k)keys[k]=0});
+addEventListener('blur',()=>{['left','right','up','down','action'].forEach(k=>{keys[k]=0})});
+function bind(id,k){const b=$(id);b.addEventListener('pointerdown',e=>{e.preventDefault();if(!keys[k])keys.pressed[k]=1;keys[k]=1});['pointerup','pointercancel','pointerleave'].forEach(n=>b.addEventListener(n,()=>{keys[k]=0}))}
+bind('pl','left');bind('pr','right');bind('pu','up');bind('pd','down');bind('pa','action');
+function pp(e){const r=cv.getBoundingClientRect();ptr.x=(e.clientX-r.left)*W/r.width;ptr.y=(e.clientY-r.top)*H/r.height}
+cv.addEventListener('pointerdown',e=>{pp(e);ptr.down=1;ptr.clicked=1});cv.addEventListener('pointermove',pp);
+addEventListener('pointerup',()=>{ptr.down=0});
+$('start').onclick=begin;$('again').onclick=begin;
+try{init()}catch(e){console.error(e)}
+function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,(t-last)/1000);last=t;
+if(state==='play'){try{update(dt)}catch(e){console.error(e)}}
+try{draw()}catch(e){console.error(e)}
+for(const k in keys.pressed)keys.pressed[k]=0;ptr.clicked=0}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

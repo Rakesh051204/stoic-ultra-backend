@@ -1,0 +1,168 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>this image 3d. visuals like</title>
+<style>html,body{margin:0;height:100%;background:#0d0d0c;overflow:hidden;font-family:system-ui,sans-serif}#hint{position:fixed;left:0;right:0;bottom:10px;text-align:center;color:#9a9aa5;font-size:12px;pointer-events:none}#rp{position:fixed;top:10px;right:10px;background:#1a1a1f;color:#cfd0ea;border:1px solid #2e2e3a;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}#err{position:fixed;top:10px;left:10px;right:10px;color:#e88;font-size:12px}</style></head><body>
+<div id="err"></div><button id="rp">Replay build</button><div id="hint">Drag to rotate - scroll to zoom</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+function buildModel(THREE){
+const group = new THREE.Group()
+function part(geo, color, x, y, z) { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 })); m.position.set(x, y, z); group.add(m); return m }
+
+// ---------- Colors ----------
+const stone = 0xe0c9a6
+const stucco = 0xf5f5f5
+const black = 0x000000
+const roofGrey = 0x2f2f2f
+const concrete = 0x777777
+const grass = 0x2e8b57
+const mulch = 0x5c3a1a
+const copper = 0xb87333
+
+// ---------- Scale (2 units ≈ 55 ft) ----------
+const s = 2/55
+
+// ---------- Bottom layer (ground‑floor box) ----------
+const w0 = 30*s      // width (x)
+const d0 = 20*s      // depth (z)
+const h0 = 12*s      // height (y)
+part(new THREE.BoxGeometry(w0, h0, d0), stone, 0, h0/2, 0)
+
+// stucco trim (front face only, thin strip)
+const trimThick = 0.02
+part(new THREE.BoxGeometry(w0, trimThick, trimThick), stucco, 0, h0 - trimThick/2, -d0/2 + trimThick/2)
+
+// ---------- Door (right‑hand side, arched) ----------
+const doorW = 0.4
+const doorH = 0.8
+const doorX = w0/2 - doorW/2 - 0.1
+const doorY = doorH/2
+// rectangular part
+part(new THREE.BoxGeometry(doorW, doorH, 0.05), black, doorX, doorY, -d0/2 + 0.025)
+// arch top (half‑cylinder)
+const archR = doorW/2
+part(new THREE.CylinderGeometry(archR, archR, 0.05, 32, 1, true, Math.PI, Math.PI), black, doorX, doorH + archR/2, -d0/2 + 0.025)
+
+// ---------- Middle layer (second‑story box) ----------
+const w1 = 28*s
+const d1 = 18*s
+const h1 = 10*s
+const inset = 0.05
+part(new THREE.BoxGeometry(w1, h1, d1), stone, 0, h0 + h1/2, 0)
+
+// stucco trim (front of middle layer)
+part(new THREE.BoxGeometry(w1, trimThick, trimThick), stucco, 0, h0 + h1 - trimThick/2, -d1/2 + trimThick/2)
+
+// ---------- Large rectangular window ----------
+const winW = 0.9
+const winH = 0.6
+const winY = h0 + h1*0.6
+part(new THREE.BoxGeometry(winW, winH, 0.04), black, 0, winY, -d1/2 + 0.02)
+
+// ---------- Small arched window above ----------
+const sWinW = 0.5
+const sWinH = 0.4
+const sArchR = sWinW/2
+const sWinY = winY + winH/2 + sWinH/2 + 0.05
+part(new THREE.BoxGeometry(sWinW, sWinH, 0.04), black, 0, sWinY, -d1/2 + 0.02)
+part(new THREE.CylinderGeometry(sArchR, sArchR, 0.04, 32, 1, true, Math.PI, Math.PI), black, 0, sWinY + sWinH/2 + sArchR/2, -d1/2 + 0.02)
+
+// ---------- Roof (steep hipped, approximated with four sloped boxes) ----------
+const roofH = 12*s
+const roofW = w0 + 0.2
+const roofD = d0 + 0.2
+const roofY = h0 + h1 + roofH/2
+
+// front‑right slope
+let r = part(new THREE.BoxGeometry(roofW, roofH, roofD), roofGrey, 0, roofY, 0)
+r.rotation.x = Math.PI/4
+r.position.y = h0 + h1 + roofH/2
+
+// back‑left slope (mirrored)
+let r2 = part(new THREE.BoxGeometry(roofW, roofH, roofD), roofGrey, 0, roofY, 0)
+r2.rotation.x = -Math.PI/4
+r2.position.y = h0 + h1 + roofH/2
+
+// ---------- Bay‑window roof curve (outward‑curving segment) ----------
+const bayRadius = 0.6
+const bayTube = 0.08
+part(new THREE.TorusGeometry(bayRadius, bayTube, 16, 30, Math.PI/2), roofGrey, 0, h0 + h1 + roofH - 0.1, d0/2 - bayRadius).rotation.x = Math.PI/2
+
+// ---------- Copper gutters (along front roof edge) ----------
+const gutterR = 0.02
+const gutterLen = roofW
+part(new THREE.CylinderGeometry(gutterR, gutterR, gutterLen, 12), copper, 0, h0 + h1 + roofH, -roofD/2 + gutterR).rotation.z = Math.PI/2
+
+// ---------- Downspout (right side) ----------
+const spoutH = 0.4
+part(new THREE.CylinderGeometry(gutterR, gutterR, spoutH, 12), copper, w0/2 - 0.1, h0 + h1 + roofH - spoutH/2, -roofD/2 + gutterR)
+
+// ---------- Front landscape ----------
+ // curved concrete driveway (half‑torus)
+const driveRadius = 1.2
+const driveTube = 0.08
+part(new THREE.TorusGeometry(driveRadius, driveTube, 12, 40, Math.PI), concrete, 0, driveTube/2, d0/2 + driveRadius - 0.2).rotation.x = Math.PI/2
+
+ // lawn (flat green plane)
+const lawnW = w0 + 0.5
+const lawnD = d0 + 1.0
+part(new THREE.BoxGeometry(lawnW, 0.02, lawnD), grass, 0, 0.01, 0)
+
+// mulched beds (two small boxes)
+const bedW = 0.4
+const bedD = 0.3
+const bedH = 0.05
+part(new THREE.BoxGeometry(bedW, bedH, bedD), mulch, -0.6, bedH/2, -0.4)
+part(new THREE.BoxGeometry(bedW, bedH, bedD), mulch, 0.6, bedH/2, -0.4)
+
+// evergreen trees (tiny cones)
+const treeH = 0.3
+const treeR = 0.12
+for (const [x,z] of [[-0.6,-0.4],[0.6,-0.4]]) {
+  part(new THREE.ConeGeometry(treeR, treeH, 8), 0x0b6623, x, bedH + treeH/2, z)
+}
+
+// ---------- Additional decorative details ----------
+ // small stone columns at front corners
+const colR = 0.03
+const colH = 0.5
+for (const x of [-w0/2 + colR, w0/2 - colR]) {
+  part(new THREE.CylinderGeometry(colR, colR, colH, 12), stone, x, colH/2, -d0/2 + colR)
+}
+
+// window mullions (thin vertical bars)
+const mullionW = 0.02
+const mullionH = winH
+part(new THREE.BoxGeometry(mullionW, mullionH, 0.01), black, -winW/4, winY, -d1/2 + 0.025)
+part(new THREE.BoxGeometry(mullionW, mullionH, 0.01), black, winW/4, winY, -d1/2 + 0.025)
+
+return group
+}
+(function(){
+var er=document.getElementById('err');
+if(typeof THREE==='undefined'){er.textContent='3D library failed to load. Check your internet.';return}
+var scene=new THREE.Scene();scene.background=new THREE.Color(0x0d0d0c);
+var cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,100);
+var ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.setSize(innerWidth,innerHeight);document.body.appendChild(ren.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x333344,0.9));
+var dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(5,8,5);scene.add(dl);
+scene.add(new THREE.GridHelper(10,20,0x7C83DB,0x2a2a35));
+var model;try{model=buildModel(THREE)}catch(e){model=new THREE.Group();er.textContent='Model error: '+e.message}
+var box=new THREE.Box3().setFromObject(model);var sz=box.getSize(new THREE.Vector3());var mx=Math.max(sz.x,sz.y,sz.z)||1;model.scale.setScalar(3/mx);
+box=new THREE.Box3().setFromObject(model);var c=box.getCenter(new THREE.Vector3());model.position.x-=c.x;model.position.z-=c.z;model.position.y-=box.min.y;scene.add(model);
+var parts=[];model.traverse(function(o){if(o.isMesh)parts.push(o)});
+var fin=parts.map(function(o){return {s:o.scale.clone(),y:o.position.y}});
+var N=parts.length,per=Math.max(30,Math.min(110,2600/Math.max(N,1))),t0=performance.now(),hn=document.getElementById('hint'),building=true;
+parts.forEach(function(o){o.visible=false});
+function stepBuild(now){var el=now-t0;for(var i=0;i<N;i++){var k=(el-i*per)/260,o=parts[i];if(k<=0){o.visible=false;continue}o.visible=true;if(k>=1){o.scale.copy(fin[i].s);o.position.y=fin[i].y}else{var e=1-Math.pow(1-k,3);o.scale.set(fin[i].s.x*e,fin[i].s.y*e,fin[i].s.z*e);o.position.y=fin[i].y+(1-e)*0.6}}
+var done=Math.min(N,Math.floor(el/per)+1);hn.textContent=done<N?('Building part '+done+' of '+N):'Drag to rotate - scroll to zoom';return el>per*N+300}
+document.getElementById('rp').onclick=function(){t0=performance.now();building=true};
+var th=0.8,ph=1.1,d=7,auto=true,drag=false,lx=0,ly=0;
+function cp(){cam.position.set(d*Math.sin(ph)*Math.sin(th),d*Math.cos(ph)+1.2,d*Math.sin(ph)*Math.cos(th));cam.lookAt(0,1.2,0)}
+var el=ren.domElement;el.style.touchAction='none';
+el.addEventListener('pointerdown',function(e){drag=true;auto=false;lx=e.clientX;ly=e.clientY});
+addEventListener('pointerup',function(){drag=false});
+addEventListener('pointermove',function(e){if(!drag)return;th-=(e.clientX-lx)*0.01;ph=Math.max(0.2,Math.min(1.5,ph-(e.clientY-ly)*0.01));lx=e.clientX;ly=e.clientY});
+el.addEventListener('wheel',function(e){e.preventDefault();d=Math.max(3,Math.min(14,d+e.deltaY*0.005))},{passive:false});
+addEventListener('resize',function(){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+(function loop(){requestAnimationFrame(loop);if(building){building=!stepBuild(performance.now())}if(auto)th+=(building?0.012:0.006);cp();ren.render(scene,cam)})();
+})();
+</script></body></html>

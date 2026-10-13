@@ -1,0 +1,108 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>house</title>
+<style>html,body{margin:0;height:100%;background:#0d0d0c;overflow:hidden;font-family:system-ui,sans-serif}#hint{position:fixed;left:0;right:0;bottom:10px;text-align:center;color:#9a9aa5;font-size:12px;pointer-events:none}#rp{position:fixed;top:10px;right:10px;background:#1a1a1f;color:#cfd0ea;border:1px solid #2e2e3a;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}#err{position:fixed;top:10px;left:10px;right:10px;color:#e88;font-size:12px}</style></head><body>
+<div id="err"></div><button id="rp">Replay build</button><div id="hint">Drag to rotate - scroll to zoom</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+function buildModel(THREE){
+const group = new THREE.Group()
+function part(geo, color, x, y, z) { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 })); m.position.set(x, y, z); group.add(m); return m }
+
+const concrete = 0xd0d0d0
+const white = 0xffffff
+const brown = 0x8b5a2b
+const darkBrown = 0x5c3a1a
+const pastelBlue = 0xa0c8f0
+const green = 0x2e8b57
+const red = 0xb22222
+const metal = 0x555555
+const glass = 0x88ccee
+
+// Foundation
+part(new THREE.BoxGeometry(10, 1, 8), concrete, 0, 0.5, 0)
+
+// Main floor
+part(new THREE.BoxGeometry(10, 4, 8), white, 0, 3, 0)
+
+// Roof overhang (dark‑brown trim)
+part(new THREE.BoxGeometry(10.4, 0.2, 8.4), darkBrown, 0, 5.1, 0)
+
+// Upper floor (stepped back)
+part(new THREE.BoxGeometry(8, 3, 6), pastelBlue, 0, 6.5, 0)
+
+// Roof (green cone)
+part(new THREE.ConeGeometry(4, 3, 32), green, 0, 9.5, 0)
+
+// Chimney
+part(new THREE.CylinderGeometry(2, 2, 3, 16), red, 2.8, 6.5, 0)
+
+// Chimney cap
+part(new THREE.CylinderGeometry(2.2, 2.2, 0.2, 16), darkBrown, 2.8, 8.6, 0)
+
+// Front porch
+part(new THREE.BoxGeometry(3, 1, 2), brown, 0, 0.5, -5)
+
+// Porch rail posts
+part(new THREE.CylinderGeometry(0.2, 0.2, 1, 12), metal, -1.3, 0.5, -6)
+part(new THREE.CylinderGeometry(0.2, 0.2, 1, 12), metal, 1.3, 0.5, -6)
+
+// Porch railing top
+part(new THREE.BoxGeometry(2.6, 0.1, 0.1), metal, 0, 1.0, -6)
+
+// Porch steps
+part(new THREE.BoxGeometry(1, 0.2, 0.5), brown, 0, 0.1, -5.5)
+part(new THREE.BoxGeometry(0.5, 0.2, 0.5), brown, 0, 0.3, -5.75)
+
+// Front door
+part(new THREE.BoxGeometry(1.2, 2, 0.05), brown, 0, 1, -3.95)
+
+// Front windows
+const winDepth = -3.95
+part(new THREE.BoxGeometry(1, 1, 0.05), glass, -2.5, 2, winDepth)
+part(new THREE.BoxGeometry(1, 1, 0.05), glass,  2.5, 2, winDepth)
+
+// Side windows
+part(new THREE.BoxGeometry(1, 1, 0.05), glass, -4.95, 2, -1.5)
+part(new THREE.BoxGeometry(1, 1, 0.05), glass, -4.95, 2,  1.5)
+
+// Roof shingles (small dark‑brown boxes around the roof base)
+const shingleCount = 12
+for (let i = 0; i < shingleCount; i++) {
+  const angle = (i / shingleCount) * Math.PI * 2
+  const r = 3.8
+  const x = Math.cos(angle) * r
+  const z = Math.sin(angle) * r
+  part(new THREE.BoxGeometry(0.4, 0.1, 0.2), darkBrown, x, 8.05, z)
+}
+
+return group
+}
+(function(){
+var er=document.getElementById('err');
+if(typeof THREE==='undefined'){er.textContent='3D library failed to load. Check your internet.';return}
+var scene=new THREE.Scene();scene.background=new THREE.Color(0x0d0d0c);
+var cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,100);
+var ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.setSize(innerWidth,innerHeight);document.body.appendChild(ren.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x333344,0.9));
+var dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(5,8,5);scene.add(dl);
+scene.add(new THREE.GridHelper(10,20,0x7C83DB,0x2a2a35));
+var model;try{model=buildModel(THREE)}catch(e){model=new THREE.Group();er.textContent='Model error: '+e.message}
+var box=new THREE.Box3().setFromObject(model);var sz=box.getSize(new THREE.Vector3());var mx=Math.max(sz.x,sz.y,sz.z)||1;model.scale.setScalar(3/mx);
+box=new THREE.Box3().setFromObject(model);var c=box.getCenter(new THREE.Vector3());model.position.x-=c.x;model.position.z-=c.z;model.position.y-=box.min.y;scene.add(model);
+var parts=[];model.traverse(function(o){if(o.isMesh)parts.push(o)});
+var fin=parts.map(function(o){return {s:o.scale.clone(),y:o.position.y}});
+var N=parts.length,per=Math.max(30,Math.min(110,2600/Math.max(N,1))),t0=performance.now(),hn=document.getElementById('hint'),building=true;
+parts.forEach(function(o){o.visible=false});
+function stepBuild(now){var el=now-t0;for(var i=0;i<N;i++){var k=(el-i*per)/260,o=parts[i];if(k<=0){o.visible=false;continue}o.visible=true;if(k>=1){o.scale.copy(fin[i].s);o.position.y=fin[i].y}else{var e=1-Math.pow(1-k,3);o.scale.set(fin[i].s.x*e,fin[i].s.y*e,fin[i].s.z*e);o.position.y=fin[i].y+(1-e)*0.6}}
+var done=Math.min(N,Math.floor(el/per)+1);hn.textContent=done<N?('Building part '+done+' of '+N):'Drag to rotate - scroll to zoom';return el>per*N+300}
+document.getElementById('rp').onclick=function(){t0=performance.now();building=true};
+var th=0.8,ph=1.1,d=7,auto=true,drag=false,lx=0,ly=0;
+function cp(){cam.position.set(d*Math.sin(ph)*Math.sin(th),d*Math.cos(ph)+1.2,d*Math.sin(ph)*Math.cos(th));cam.lookAt(0,1.2,0)}
+var el=ren.domElement;el.style.touchAction='none';
+el.addEventListener('pointerdown',function(e){drag=true;auto=false;lx=e.clientX;ly=e.clientY});
+addEventListener('pointerup',function(){drag=false});
+addEventListener('pointermove',function(e){if(!drag)return;th-=(e.clientX-lx)*0.01;ph=Math.max(0.2,Math.min(1.5,ph-(e.clientY-ly)*0.01));lx=e.clientX;ly=e.clientY});
+el.addEventListener('wheel',function(e){e.preventDefault();d=Math.max(3,Math.min(14,d+e.deltaY*0.005))},{passive:false});
+addEventListener('resize',function(){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+(function loop(){requestAnimationFrame(loop);if(building){building=!stepBuild(performance.now())}if(auto)th+=(building?0.012:0.006);cp();ren.render(scene,cam)})();
+})();
+</script></body></html>

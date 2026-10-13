@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nitro Rush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#070b22;color:#fff;font-family:"DM Sans",system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#hud{position:fixed;inset:0;pointer-events:none;padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 0}
+.top{display:flex;justify-content:space-between}
+.top small,.spd small{display:block;font-size:12px;opacity:.7}
+.top b{font:400 28px "Bungee","Arial Black",sans-serif}
+.spd{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 118px);text-align:center}
+.spd>b{font:400 54px/1 "Bungee","Arial Black",sans-serif;text-shadow:0 0 18px #00e5ff}
+.gear{margin-top:6px;font-size:14px;opacity:.9}
+.gear b{font:400 24px "Bungee","Arial Black",sans-serif;display:inline;color:#ffd23f}
+.rpm{width:190px;height:7px;background:#ffffff22;border-radius:5px;margin:6px auto 0;overflow:hidden}
+.rpm i{display:block;height:100%;width:0;background:#7cff6b}
+.nit{position:fixed;left:18px;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 80px);height:8px;border-radius:6px;background:#ffffff22;overflow:hidden}
+.nit i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#00e5ff,#ff2d75)}
+#pop{position:fixed;left:50%;top:26%;transform:translateX(-50%);font:400 26px "Bungee","Arial Black",sans-serif;color:#ffd23f;opacity:0;transition:opacity .25s;text-shadow:0 0 14px #ff2d75;white-space:nowrap}
+#pbtn{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 14px);pointer-events:auto}
+.ghost{border:2px solid #ffffff55;background:#ffffff14;color:#fff;border-radius:10px;padding:8px 16px;font:700 14px "DM Sans",sans-serif;cursor:pointer}
+.ghost:focus-visible,.go:focus-visible,#ctl button:focus-visible{outline:3px solid #ffd23f;outline-offset:2px}
+#ctl{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:none;justify-content:space-between;gap:8px;padding:0 12px}
+#ctl button{flex:1;height:58px;border:2px solid #ffffff55;border-radius:14px;background:#ffffff18;color:#fff;font:700 16px "DM Sans",sans-serif}
+#ctl #bn{background:#ff2d7544;border-color:#ff2d75}
+#ctl #bb{background:#ffb02e33;border-color:#ffb02e}
+#gctl{position:fixed;right:14px;bottom:calc(env(safe-area-inset-bottom,0px) + 170px);display:none;flex-direction:column;gap:8px}
+#gctl button{width:64px;height:48px;border:2px solid #ffffff55;border-radius:12px;background:#ffffff18;color:#fff;font:700 15px "DM Sans",sans-serif}
+@media (pointer:coarse){#ctl{display:flex}body.man #gctl{display:flex}}
+.ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:radial-gradient(circle at 50% 40%,#070b22cc,#070b22f2);overflow:auto}
+.ov[hidden]{display:none}
+.ov>div{max-width:520px;width:100%}
+.brand{font:400 16px "Bungee","Arial Black",sans-serif;color:#ff2d75;letter-spacing:.05em}
+h1{font:400 clamp(32px,7vw,60px)/1.05 "Bungee","Arial Black",sans-serif;margin:10px 0 12px}
+h2{font:400 26px "Bungee","Arial Black",sans-serif;margin:0 0 14px}
+.ov p{margin:0 0 20px;opacity:.85}
+.ov .tip{font-size:14px;opacity:.6;margin-top:18px}
+.go{border:0;border-radius:12px;padding:14px 30px;font:400 20px "Bungee","Arial Black",sans-serif;background:#00e5ff;color:#06122b;cursor:pointer;margin:4px}
+.panel{background:#0d1536;border:2px solid #1f2d63;border-radius:16px;padding:20px;text-align:left}
+.panel label{display:grid;gap:6px;margin-bottom:14px;font-weight:700;font-size:15px}
+.panel label span{float:right;opacity:.7}
+.panel select,.panel input[type=range]{width:100%;font:inherit}
+.panel select{padding:9px;border-radius:8px;background:#070b22;color:#fff;border:1px solid #2a3a7a}
+.panel .chk{display:flex;gap:10px;align-items:center}
+.panel .go{display:block;margin:6px auto 0}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="top"><div><small>Score</small><b id="sc">0</b></div><div style="text-align:right"><small>Best</small><b id="bs">0</b></div></div>
+  <button class="ghost" id="pbtn">Pause</button>
+  <div class="spd"><b id="kmh">0</b><small>km/h</small>
+    <div class="gear">Gear <b id="gr">1</b> <span id="gm">Auto</span></div>
+    <div class="rpm"><i id="rb"></i></div></div>
+  <div class="nit"><i id="nb"></i></div>
+  <div id="pop"></div>
+</div>
+<div id="gctl"><button id="bgu">Gear +</button><button id="bgd">Gear -</button></div>
+<div id="ctl"><button id="bl">Left</button><button id="bb">Brake</button><button id="bn">Nitro</button><button id="br">Right</button></div>
+<div class="ov" id="menu"><div>
+  <div class="brand" id="name"></div><h1 id="head"></h1><p id="sub"></p>
+  <button class="go" id="go">Start race</button><button class="go" id="sbtn" style="background:#ffffff22;color:#fff">Settings</button>
+  <p class="tip">Steer: arrow keys or A / D. Nitro: Space or Up. Brake: S or Down. Manual gears: Q / E. Pause: Esc. On a phone use the buttons, or turn on tilt steering in Settings.</p>
+</div></div>
+<div class="ov" id="set" hidden><div class="panel">
+  <h2>Settings</h2>
+  <label>Steering sensitivity <span id="v_steer"></span><input type="range" id="s_steer" min=".5" max="2" step=".1"></label>
+  <label>Transmission<select id="s_trans"><option value="auto">Automatic</option><option value="manual">Manual (Q / E to shift)</option></select></label>
+  <label>Difficulty<select id="s_diff"><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select></label>
+  <label>Camera distance<input type="range" id="s_cam" min=".8" max="1.5" step=".1"></label>
+  <label>Engine volume<input type="range" id="s_vol" min="0" max="1" step=".1"></label>
+  <label>Graphics<select id="s_gfx"><option value="high">High</option><option value="low">Low (faster)</option></select></label>
+  <label class="chk"><input type="checkbox" id="s_tilt"> Tilt steering (phone)</label>
+  <button class="go" id="sdone">Done</button>
+</div></div>
+<div class="ov" id="over" hidden><div>
+  <div class="brand">Crashed</div><h1 id="fs">0</h1><p id="fb"></p>
+  <button class="go" id="again">Race again</button>
+</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const SITE={"name":"Nitro Rush","headline":"Race the night city","sub":"Dodge traffic, hit nitro and beat your best score."};
+const $=id=>document.getElementById(id),rnd=n=>Math.random()*n|0;
+const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+document.title=SITE.name;$('name').textContent=SITE.name;$('head').textContent=SITE.headline;$('sub').textContent=SITE.sub;
+let CFG={steer:1,trans:'auto',diff:'normal',vol:.5,cam:1,gfx:'high',tilt:0};
+try{Object.assign(CFG,JSON.parse(ls.get('nr.cfg')||'{}'))}catch(e){}
+const save=()=>ls.set('nr.cfg',JSON.stringify(CFG));
+
+const R=new THREE.WebGLRenderer({canvas:$('c'),antialias:true});
+const S=new THREE.Scene();S.background=new THREE.Color(0x070b22);S.fog=new THREE.Fog(0x070b22,50,300);
+const cam=new THREE.PerspectiveCamera(70,1,.1,500);
+function size(){R.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+addEventListener('resize',size);
+S.add(new THREE.AmbientLight(0x6070a0,.95));
+const moon=new THREE.DirectionalLight(0x9db4ff,.6);moon.position.set(-20,40,10);S.add(moon);
+
+const gm=(c,r)=>new THREE.MeshStandardMaterial({color:c,roughness:r||.9});
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(600,900),gm(0x0a1020));ground.rotation.x=-Math.PI/2;ground.position.set(0,-.05,-350);S.add(ground);
+const road=new THREE.Mesh(new THREE.PlaneGeometry(12,900),gm(0x1a1d2b));road.rotation.x=-Math.PI/2;road.position.z=-350;S.add(road);
+[-8,8].forEach(x=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(4,900),gm(0x2a2f45));m.rotation.x=-Math.PI/2;m.position.set(x,.01,-350);S.add(m)});
+[-5.9,5.9].forEach(x=>{const m=new THREE.Mesh(new THREE.BoxGeometry(.2,.03,900),new THREE.MeshBasicMaterial({color:0xff2d75}));m.position.set(x,.03,-350);S.add(m)});
+const dashes=[];
+[-3,0,3].forEach(x=>{for(let i=0;i<30;i++){const m=new THREE.Mesh(new THREE.BoxGeometry(.15,.02,6),new THREE.MeshBasicMaterial({color:0xdddddd}));m.position.set(x,.03,20-i*20);S.add(m);dashes.push(m)}});
+const lamps=[];
+[-7.6,7.6].forEach(x=>{for(let i=0;i<16;i++){const g=new THREE.Group();
+const p=new THREE.Mesh(new THREE.CylinderGeometry(.08,.1,6,6),gm(0x333a55));p.position.y=3;g.add(p);
+const b=new THREE.Mesh(new THREE.SphereGeometry(.35,10,8),new THREE.MeshBasicMaterial({color:0xffd9a0}));b.position.y=6.1;g.add(b);
+g.position.set(x,0,20-i*40);S.add(g);lamps.push(g)}});
+function winTex(){const c=document.createElement('canvas');c.width=64;c.height=64;const x=c.getContext('2d');x.fillStyle='#0b1030';x.fillRect(0,0,64,64);
+const cols=['#ffd27a','#7ae7ff','#ff7ac8','#fff3b0'];
+for(let i=0;i<2;i++)for(let j=0;j<4;j++)if(Math.random()<.55){x.fillStyle=cols[rnd(4)];x.fillRect(6+i*30,5+j*15,20,9)}
+const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
+const blds=[];
+[-1,1].forEach(sd=>{for(let i=0;i<14;i++){const w=10+rnd(7),h=20+rnd(50),t=winTex();t.repeat.set(Math.round(w/7),Math.round(h/8));
+const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,30),new THREE.MeshBasicMaterial({map:t,color:new THREE.Color().setHSL(Math.random(),.35,.75)}));
+m.position.set(sd*(13+w/2),h/2,20-i*46);S.add(m);blds.push(m)}});
+
+function makeCar(col){const g=new THREE.Group();
+const body=new THREE.Mesh(new THREE.BoxGeometry(2,.7,4.4),new THREE.MeshStandardMaterial({color:col,metalness:.6,roughness:.3}));body.position.y=.65;g.add(body);
+const cab=new THREE.Mesh(new THREE.BoxGeometry(1.7,.6,2.1),new THREE.MeshStandardMaterial({color:0x10172e,metalness:.8,roughness:.1}));cab.position.set(0,1.25,.3);g.add(cab);
+const wg=new THREE.CylinderGeometry(.42,.42,.35,14),wm=gm(0x080808);
+[[-1,1.4],[1,1.4],[-1,-1.4],[1,-1.4]].forEach(p=>{const w=new THREE.Mesh(wg,wm);w.rotation.z=Math.PI/2;w.position.set(p[0],.42,p[1]);g.add(w)});
+const tl=new THREE.MeshBasicMaterial({color:0xff2244}),hl=new THREE.MeshBasicMaterial({color:0xfff4c8}),lg=new THREE.BoxGeometry(.5,.2,.1);
+[-.7,.7].forEach(x=>{const a=new THREE.Mesh(lg,tl);a.position.set(x,.75,2.2);g.add(a);const b=new THREE.Mesh(lg,hl);b.position.set(x,.75,-2.2);g.add(b)});
+g.userData.tl=tl;return g}
+const P=makeCar(0xff2d75);S.add(P);
+const sp=new THREE.SpotLight(0xfff0d0,1.3,90,.5,.5);sp.position.set(0,1.2,-2);sp.target.position.set(0,0,-40);P.add(sp);P.add(sp.target);
+const ug=new THREE.PointLight(0x00e5ff,1.2,9);ug.position.set(0,.3,0);P.add(ug);
+const pal=[0x3b82f6,0xfacc15,0x22c55e,0xa855f7,0xf97316,0xe5e7eb,0x14b8a6];
+const LANES=[-4.5,-1.5,1.5,4.5],traffic=[];
+for(let i=0;i<9;i++){const m=makeCar(pal[i%pal.length]);S.add(m);traffic.push({m:m,x:0,z:0,s:20,passed:0})}
+function place(c,far){for(let t=0;t<8;t++){c.x=LANES[rnd(4)];c.z=-(far?160:70)-rnd(260);c.s=14+rnd(16);c.passed=0;
+if(!traffic.some(o=>o!==c&&o.x===c.x&&Math.abs(o.z-c.z)<22))break}}
+
+const NL=100,lp=new Float32Array(NL*6),LS=[];
+for(let i=0;i<NL;i++)LS.push({x:(Math.random()-.5)*30,y:.3+Math.random()*9,z:-Math.random()*130});
+const lgm=new THREE.BufferGeometry();lgm.setAttribute('position',new THREE.BufferAttribute(lp,3));
+const lmt=new THREE.LineBasicMaterial({color:0xa8dcff,transparent:true,opacity:0});
+const streaks=new THREE.LineSegments(lgm,lmt);streaks.frustumCulled=false;S.add(streaks);
+
+let au,osc,gn,muted=false;
+const vol=()=>muted?0:.07*CFG.vol;
+function sndStart(){try{au=au||new(window.AudioContext||window.webkitAudioContext)();au.resume();osc=au.createOscillator();gn=au.createGain();osc.type='sawtooth';gn.gain.value=vol();osc.connect(gn);gn.connect(au.destination);osc.start()}catch(e){}}
+function sndStop(){try{osc&&osc.stop()}catch(e){}osc=null}
+
+const TH=[0,18,30,42,56,70],CAP=[20,32,44,58,72,110],DMS=[.85,1,1.2];
+let st='menu',speed=0,px=0,steer=0,dist=0,score=0,nit=100,nitOn=false,shake=0,T=0,gear=1,rpm=0,tilt=0,tb=0,wasMan=false,prev='menu',popT;
+let best=+(ls.get('nr.best')||0);
+const inp={l:0,r:0,n:0,b:0};
+$('bs').textContent=best;
+const autoGear=()=>{let g=1;for(let i=1;i<6;i++)if(speed>=TH[i])g=i+1;return g};
+function pop(t){const e=$('pop');e.textContent=t;e.style.opacity=1;clearTimeout(popT);popT=setTimeout(()=>{e.style.opacity=0},900)}
+function bindTilt(){if(tb)return;const go=()=>{tb=1;addEventListener('deviceorientation',e=>{const a=(screen.orientation&&screen.orientation.angle)||0;let v=e.gamma||0;if(a===90)v=e.beta||0;else if(a===270)v=-(e.beta||0);tilt=Math.max(-1,Math.min(1,v/22))})};
+if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted')go()}).catch(()=>{})}else go()}
+function applyCfg(){R.setPixelRatio(CFG.gfx==='low'?1:Math.min(devicePixelRatio,2));size();
+const N=[6,8,9][['easy','normal','hard'].indexOf(CFG.diff)]||8;
+traffic.forEach((c,i)=>{const on=i<N;if(on&&!c.m.visible&&st!=='menu')place(c,1);c.m.visible=on});
+const man=CFG.trans==='manual';if(man&&!wasMan)gear=autoGear();wasMan=man;
+document.body.classList.toggle('man',man);$('gm').textContent=man?'Manual':'Auto';
+if(gn)gn.gain.value=vol();if(CFG.tilt)bindTilt()}
+function reset(){px=0;steer=0;dist=0;score=0;nit=100;speed=30;shake=0;gear=1;traffic.forEach(c=>place(c,1));$('sc').textContent=0}
+function start(){reset();st='run';$('menu').hidden=true;$('over').hidden=true;$('set').hidden=true;if(CFG.tilt)bindTilt();sndStart()}
+function crash(){st='over';shake=1;sndStop();const s=Math.floor(score);if(s>best){best=s;ls.set('nr.best',s)}
+$('bs').textContent=best;$('fs').textContent=s;$('fb').textContent=s>=best&&s>0?'New best score':'Best: '+best;
+setTimeout(()=>{$('over').hidden=false;$('again').focus()},700)}
+function openSet(){prev=st;if(st==='run')st='pause';$('set').hidden=false}
+function closeSet(){$('set').hidden=true;if(st==='pause')st='run';applyCfg()}
+function togglePause(){if(st==='run')openSet();else if(st==='pause')closeSet()}
+function shift(d){if(CFG.trans==='manual'&&st==='run'){gear=Math.max(1,Math.min(6,gear+d))}}
+$('go').onclick=start;$('again').onclick=start;$('sbtn').onclick=openSet;$('sdone').onclick=closeSet;$('pbtn').onclick=togglePause;
+$('bgu').onclick=()=>shift(1);$('bgd').onclick=()=>shift(-1);
+(function(){const q=(id,k,num)=>{const e=$(id);e.value=CFG[k];e.oninput=e.onchange=()=>{CFG[k]=num?+e.value:e.value;save();applyCfg();if(k==='steer')$('v_steer').textContent=CFG.steer.toFixed(1)}};
+q('s_steer','steer',1);q('s_trans','trans');q('s_diff','diff');q('s_cam','cam',1);q('s_vol','vol',1);q('s_gfx','gfx');
+const t=$('s_tilt');t.checked=!!CFG.tilt;t.onchange=()=>{CFG.tilt=t.checked?1:0;save();applyCfg()};$('v_steer').textContent=CFG.steer.toFixed(1)})();
+applyCfg();traffic.forEach(c=>place(c,0));
+
+const K={ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r',' ':'n',ArrowUp:'n',w:'n',W:'n',ArrowDown:'b',s:'b',S:'b',b:'b',B:'b'};
+addEventListener('keydown',e=>{const k=K[e.key];if(k){inp[k]=1;e.preventDefault();return}
+if(e.key==='m'||e.key==='M'){muted=!muted;if(gn)gn.gain.value=vol()}
+else if(e.key==='e'||e.key==='E'||e.key==='PageUp')shift(1);
+else if(e.key==='q'||e.key==='Q'||e.key==='PageDown')shift(-1);
+else if(e.key==='Escape'||e.key==='p'||e.key==='P')togglePause();
+else if(e.key==='Enter'&&st==='menu'&&$('set').hidden)start();else if(e.key==='Enter'&&st==='over')start()});
+addEventListener('keyup',e=>{const k=K[e.key];if(k)inp[k]=0});
+addEventListener('blur',()=>{inp.l=inp.r=inp.n=inp.b=0});
+function hold(id,k){const b=$(id);b.addEventListener('pointerdown',e=>{e.preventDefault();inp[k]=1});
+['pointerup','pointercancel','pointerleave'].forEach(n=>b.addEventListener(n,()=>{inp[k]=0}))}
+hold('bl','l');hold('br','r');hold('bn','n');hold('bb','b');
+
+let last=performance.now();
+function frame(now){requestAnimationFrame(frame);
+const dt=st==='pause'?0:Math.min(.05,(now-last)/1000);last=now;T+=dt;const run=st==='run';
+const man=CFG.trans==='manual',di=['easy','normal','hard'].indexOf(CFG.diff),DM=DMS[di<0?1:di];
+const brake=run&&inp.b;
+if(!man)gear=autoGear();
+let tgt=st==='over'?0:Math.min(72,30+dist*.0035)*DM;
+if(man)tgt=Math.min(tgt,CAP[gear-1]);
+nitOn=run&&inp.n&&nit>0&&!brake;
+if(nitOn){tgt+=34;nit=Math.max(0,nit-28*dt)}else if(run)nit=Math.min(100,nit+7*dt);
+if(brake)tgt=5;
+let rate=st==='over'?2.2:brake?3.5:1.2;
+if(man&&!brake&&speed/CAP[gear-1]<.3)rate*=.4;
+speed+=(tgt-speed)*Math.min(1,dt*rate);
+if(brake)speed=Math.max(5,speed-45*dt);
+if(man)rpm=Math.min(1,speed/CAP[gear-1]);
+else{const lo=TH[gear-1],hi=gear<6?TH[gear]:CAP[5];rpm=Math.max(0,Math.min(1,(speed-lo)/(hi-lo)))}
+let dir=run?Math.max(-1,Math.min(1,inp.r-inp.l+(CFG.tilt?tilt:0))):0;
+if(st==='menu')px=Math.sin(T*.5)*3.5;else px=Math.max(-5,Math.min(5,px+dir*15*dt*(.5+speed/90)*CFG.steer));
+steer+=(dir-steer)*Math.min(1,dt*8);
+P.position.x=px;P.rotation.y=-steer*.14;P.rotation.z=-steer*.03;
+P.userData.tl.color.setHex(brake?0xffa0aa:0xff2244);
+const v=speed*dt;
+dashes.forEach(m=>{m.position.z+=v;if(m.position.z>30)m.position.z-=600});
+lamps.forEach(m=>{m.position.z+=v;if(m.position.z>30)m.position.z-=640});
+blds.forEach(m=>{m.position.z+=v;if(m.position.z>60)m.position.z-=644});
+traffic.forEach(c=>{if(!c.m.visible)return;c.z+=(speed-c.s)*dt;if(c.z>20)place(c,1);
+c.m.position.set(c.x,0,c.z);
+if(run){if(Math.abs(c.x-px)<1.95&&Math.abs(c.z)<4.3){crash()}
+else if(!c.passed&&c.z>2.5){c.passed=1;if(Math.abs(c.x-px)<3.2){score+=50;pop('Close call +50')}}}});
+if(run){dist+=v;score+=v*.5*DM;$('sc').textContent=Math.floor(score)}
+if(CFG.gfx==='low'){lmt.opacity=0}else{
+const len=speed*.05*(nitOn?1.8:1);
+LS.forEach((l,i)=>{l.z+=speed*1.2*dt;if(l.z>10){l.z=-130;l.x=(Math.random()-.5)*30;l.y=.3+Math.random()*9}
+lp[i*6]=l.x;lp[i*6+1]=l.y;lp[i*6+2]=l.z;lp[i*6+3]=l.x;lp[i*6+4]=l.y;lp[i*6+5]=l.z-len});
+lgm.attributes.position.needsUpdate=true;lmt.opacity=Math.max(0,Math.min(.55,(speed-34)/40))}
+shake=Math.max(0,shake-dt*1.6);const sk=(nitOn?.05:0)+shake*.6;
+cam.position.set(px*.6+(Math.random()-.5)*sk,4.2+(CFG.cam-1)*3+(Math.random()-.5)*sk,10.5*CFG.cam);cam.lookAt(px*.8,1.2,-14);
+cam.fov+=(Math.min(98,66+speed*.22+(nitOn?10:0))-cam.fov)*Math.min(1,dt*4);cam.updateProjectionMatrix();
+if(osc)osc.frequency.value=70+rpm*190+(nitOn?30:0);
+$('kmh').textContent=Math.floor(speed*3.6);$('nb').style.width=nit+'%';
+$('gr').textContent=brake?'B':gear;const rb=$('rb');rb.style.width=(rpm*100)+'%';rb.style.background=rpm>.9?'#ff4d4d':rpm>.7?'#ffd23f':'#7cff6b';
+R.render(S,cam)}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

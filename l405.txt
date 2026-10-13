@@ -1,0 +1,28 @@
+﻿405: 
+406:       appendHistory(sessionId, 'user', message)
+407:       appendHistory(sessionId, 'assistant', chitchatReply)
+408:       await saveChatTurn(sessionId, message, chitchatReply, [], [])
+409: 
+410:       send('followups', { followUps: [] })
+411:       send('done', {})
+412:       return res.end()
+413:     }
+414: 
+415:     if (isCasualKnowledgeCheck(message) && !/\b(ats|resume|cv)\b/i.test(message)) {
+416:       send('thinking', { text: 'Thinking about it' })
+417: 
+418:       const { sources, images } = (CODE_TASK_RE.test(message) ? { sources: [], images: [] } : await runSearch(message, 'balanced'))
+419:       send('sources', { sources })
+420:       send('images', { images: shouldShowImages(message) ? images : [] })
+421: 
+422:       // JOBS-ENGINE
+423:       try {
+424:         const _resume = getAttachments(sessionId).map(a => a.textContent || a.extractedText || '').join('\n')
+425:         if (await handleJobRequest({ message, sessionId, send, resumeText: _resume })) { clearAttachments(sessionId); send('done', {}); return res.end
+426:       } catch (e) { console.error('[jobs] engine failed:', e.message) }
+427:       const sourcesContext = buildSourcesContext(sources)
+428:       const casualMessages = [
+429:         { role: 'system', content: WIDGET_PROMPT + '\n' + CASUAL_KNOWLEDGE_SYSTEM_PROMPT },
+430:       ]
+431:       if (sourcesContext) casualMessages.push({ role: 'system', content: sourcesContext })
+432:       casualMessages.push({ role: 'user', content: message })

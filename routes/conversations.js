@@ -133,8 +133,8 @@ router.get('/:id/messages', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message })
   res.json({
     messages: (data || []).map(m => ({
-      id: m.id, role: m.role, content: m.content,
-      sources: m.sources || [], images: m.images || [],
+      id: m.id, role: m.role, content: m.content, timestamp: m.created_at, videos: (m.meta && m.meta.videos) ? m.meta.videos : undefined, followUps: (m.meta && m.meta.followUps) ? m.meta.followUps : undefined, game: (m.meta && m.meta.game) ? m.meta.game : undefined,
+      sources: m.sources || [], images: m.images || [], report: (m.meta && m.meta.report) ? m.meta.report : null, attachments: (m.meta && m.meta.attachments) ? m.meta.attachments : undefined,
     })),
   })
 })

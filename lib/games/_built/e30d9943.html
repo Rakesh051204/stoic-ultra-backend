@@ -1,0 +1,99 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>3D chair</title>
+<style>html,body{margin:0;height:100%;background:#0d0d0c;overflow:hidden;font-family:system-ui,sans-serif}#hint{position:fixed;left:0;right:0;bottom:10px;text-align:center;color:#9a9aa5;font-size:12px;pointer-events:none}#err{position:fixed;top:10px;left:10px;right:10px;color:#e88;font-size:12px}</style></head><body>
+<div id="err"></div><div id="hint">Drag to rotate - scroll to zoom</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+function buildModel(THREE){
+const group = new THREE.Group()
+function part(geo, color, x, y, z) { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 })); m.position.set(x, y, z); group.add(m); return m }
+const wood = 0x8b5a2b
+const darkWood = 0x5c3a1a
+const metal = 0x777777
+const metalDark = 0x444444
+const fabric = 0xc09a6b
+
+// dimensions
+const legHeight = 1.2, legRadius = 0.07
+const seatW = 1.0, seatD = 0.8, seatTh = 0.15
+const backPostH = 0.6, backPostR = 0.07
+const slatH = 0.5, slatW = 0.7, slatT = 0.02
+const railR = 0.03, railL = seatW - 0.2
+const cushionTh = 0.04
+const footrestW = 0.6, footrestD = 0.1, footrestTh = 0.05
+
+// legs
+const legX = [ seatW/2 - 0.1, -(seatW/2 - 0.1) ]
+const legZ = [ seatD/2 - 0.1, -(seatD/2 - 0.1) ]
+for (const x of legX) {
+  for (const z of legZ) {
+    part(new THREE.CylinderGeometry(legRadius, legRadius, legHeight, 16), darkWood, x, legHeight/2, z)
+    // top cap
+    part(new THREE.TorusGeometry(legRadius, 0.02, 8, 24), metalDark, x, legHeight, z).rotation.x = Math.PI/2
+    // bottom cap
+    part(new THREE.TorusGeometry(legRadius, 0.02, 8, 24), metalDark, x, 0, z).rotation.x = Math.PI/2
+    // screws (2 per leg)
+    const screwR = 0.015
+    part(new THREE.SphereGeometry(screwR, 8, 8), metalDark, x + 0.02, legHeight - 0.1, z + 0.02)
+    part(new THREE.SphereGeometry(screwR, 8, 8), metalDark, x - 0.02, legHeight - 0.1, z - 0.02)
+  }
+}
+
+// seat
+part(new THREE.BoxGeometry(seatW, seatTh, seatD), wood, 0, legHeight + seatTh/2, 0)
+
+// cushion
+part(new THREE.BoxGeometry(seatW*0.96, cushionTh, seatD*0.96), fabric, 0, legHeight + seatTh + cushionTh/2, 0)
+
+// footrest (front)
+part(new THREE.BoxGeometry(footrestW, footrestTh, footrestD), darkWood, 0, footrestTh/2 + 0.1, seatD/2 - footrestD/2 - 0.05)
+
+// back posts
+const backZ = -seatD/2 + 0.05
+for (const x of [ -seatW/2 + 0.1, seatW/2 - 0.1 ]) {
+  part(new THREE.CylinderGeometry(backPostR, backPostR, backPostH, 12), darkWood, x, legHeight + seatTh + backPostH/2, backZ)
+  // metal bracket on each post
+  part(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 8), metal, x, legHeight + seatTh + backPostH - 0.025, backZ + 0.03)
+}
+
+// back slats
+const slatX = [ -0.3, -0.1, 0.1, 0.3 ]
+for (const x of slatX) {
+  part(new THREE.BoxGeometry(slatT, slatH, slatW), wood, x, legHeight + seatTh + slatH/2, backZ)
+}
+
+// top rail
+const rail = part(new THREE.CylinderGeometry(railR, railR, railL, 12), metalDark, 0, legHeight + seatTh + backPostH - 0.02, backZ)
+rail.rotation.z = Math.PI/2
+
+// screws on seat top corners
+for (const x of [ seatW/2 - 0.05, -(seatW/2 - 0.05) ]) {
+  for (const z of [ seatD/2 - 0.05, -(seatD/2 - 0.05) ]) {
+    part(new THREE.SphereGeometry(0.015, 8, 8), metalDark, x, legHeight + seatTh + 0.02, z)
+  }
+}
+
+return group
+}
+(function(){
+var er=document.getElementById('err');
+if(typeof THREE==='undefined'){er.textContent='3D library failed to load. Check your internet.';return}
+var scene=new THREE.Scene();scene.background=new THREE.Color(0x0d0d0c);
+var cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,100);
+var ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.setSize(innerWidth,innerHeight);document.body.appendChild(ren.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x333344,0.9));
+var dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(5,8,5);scene.add(dl);
+scene.add(new THREE.GridHelper(10,20,0x7C83DB,0x2a2a35));
+var model;try{model=buildModel(THREE)}catch(e){model=new THREE.Group();er.textContent='Model error: '+e.message}
+var box=new THREE.Box3().setFromObject(model);var sz=box.getSize(new THREE.Vector3());var mx=Math.max(sz.x,sz.y,sz.z)||1;model.scale.setScalar(3/mx);
+box=new THREE.Box3().setFromObject(model);var c=box.getCenter(new THREE.Vector3());model.position.x-=c.x;model.position.z-=c.z;model.position.y-=box.min.y;scene.add(model);
+var th=0.8,ph=1.1,d=7,auto=true,drag=false,lx=0,ly=0;
+function cp(){cam.position.set(d*Math.sin(ph)*Math.sin(th),d*Math.cos(ph)+1.2,d*Math.sin(ph)*Math.cos(th));cam.lookAt(0,1.2,0)}
+var el=ren.domElement;el.style.touchAction='none';
+el.addEventListener('pointerdown',function(e){drag=true;auto=false;lx=e.clientX;ly=e.clientY});
+addEventListener('pointerup',function(){drag=false});
+addEventListener('pointermove',function(e){if(!drag)return;th-=(e.clientX-lx)*0.01;ph=Math.max(0.2,Math.min(1.5,ph-(e.clientY-ly)*0.01));lx=e.clientX;ly=e.clientY});
+el.addEventListener('wheel',function(e){e.preventDefault();d=Math.max(3,Math.min(14,d+e.deltaY*0.005))},{passive:false});
+addEventListener('resize',function(){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+(function loop(){requestAnimationFrame(loop);if(auto)th+=0.006;cp();ren.render(scene,cam)})();
+})();
+</script></body></html>

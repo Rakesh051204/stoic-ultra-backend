@@ -1,0 +1,124 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>3D chair</title>
+<style>html,body{margin:0;height:100%;background:#0d0d0c;overflow:hidden;font-family:system-ui,sans-serif}#hint{position:fixed;left:0;right:0;bottom:10px;text-align:center;color:#9a9aa5;font-size:12px;pointer-events:none}#err{position:fixed;top:10px;left:10px;right:10px;color:#e88;font-size:12px}</style></head><body>
+<div id="err"></div><div id="hint">Drag to rotate - scroll to zoom</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+function buildModel(THREE){
+const group = new THREE.Group();
+
+// Materials
+const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+const metalMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
+const cushionMaterial = new THREE.MeshStandardMaterial({ color: 0x1E90FF });
+const knobMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
+
+// Dimensions
+const seatWidth = 1.5;
+const seatDepth = 1.5;
+const seatHeight = 0.1;
+const legRadius = 0.05;
+const legHeight = 0.5;
+const backHeight = 1.2;
+const backThickness = 0.1;
+const armRadius = 0.04;
+const armLength = seatDepth - 0.2;
+const crossBarHeight = 0.08;
+const knobRadius = 0.07;
+const cushionHeight = 0.05;
+
+// Seat
+const seatGeom = new THREE.BoxGeometry(seatWidth, seatHeight, seatDepth);
+const seatMesh = new THREE.Mesh(seatGeom, woodMaterial);
+seatMesh.position.y = legHeight + seatHeight / 2;
+group.add(seatMesh);
+
+// Cushion
+const cushionGeom = new THREE.BoxGeometry(seatWidth - 0.2, cushionHeight, seatDepth - 0.2);
+const cushionMesh = new THREE.Mesh(cushionGeom, cushionMaterial);
+cushionMesh.position.y = legHeight + seatHeight + cushionHeight / 2;
+group.add(cushionMesh);
+
+// Legs (4)
+const legGeom = new THREE.CylinderGeometry(legRadius, legRadius, legHeight, 16);
+const legOffsetsX = (seatWidth / 2) - 0.1;
+const legOffsetsZ = (seatDepth / 2) - 0.1;
+for (let sx of [-1, 1]) {
+  for (let sz of [-1, 1]) {
+    const leg = new THREE.Mesh(legGeom, woodMaterial);
+    leg.position.set(sx * legOffsetsX, legHeight / 2, sz * legOffsetsZ);
+    group.add(leg);
+  }
+}
+
+// Backrest
+const backGeom = new THREE.BoxGeometry(seatWidth, backHeight, backThickness);
+const backMesh = new THREE.Mesh(backGeom, woodMaterial);
+backMesh.position.set(0, legHeight + seatHeight + backHeight / 2, -(seatDepth / 2) + backThickness / 2);
+group.add(backMesh);
+
+// Armrests (2) – vertical cylinders on each side
+const armGeom = new THREE.CylinderGeometry(armRadius, armRadius, armLength, 12);
+for (let sx of [-1, 1]) {
+  const arm = new THREE.Mesh(armGeom, metalMaterial);
+  arm.rotation.z = Math.PI / 2; // lay horizontally
+  arm.position.set(sx * (seatWidth / 2 - 0.08), legHeight + seatHeight + backHeight * 0.6, 0);
+  group.add(arm);
+}
+
+// Front crossbar (connect front legs)
+const frontBarGeom = new THREE.BoxGeometry(seatWidth - 0.2, crossBarHeight, crossBarHeight);
+const frontBar = new THREE.Mesh(frontBarGeom, metalMaterial);
+frontBar.position.set(0, legHeight + crossBarHeight / 2, (seatDepth / 2) - 0.05);
+group.add(frontBar);
+
+// Back crossbar (connect back legs)
+const backBarGeom = new THREE.BoxGeometry(seatWidth - 0.2, crossBarHeight, crossBarHeight);
+const backBar = new THREE.Mesh(backBarGeom, metalMaterial);
+backBar.position.set(0, legHeight + crossBarHeight / 2, -(seatDepth / 2) + 0.05);
+group.add(backBar);
+
+// Side crossbars (connect left/right legs)
+const sideBarGeom = new THREE.BoxGeometry(crossBarHeight, crossBarHeight, seatDepth - 0.2);
+for (let sx of [-1, 1]) {
+  const sideBar = new THREE.Mesh(sideBarGeom, metalMaterial);
+  sideBar.position.set(sx * (seatWidth / 2 - 0.05), legHeight + crossBarHeight / 2, 0);
+  group.add(sideBar);
+}
+
+// Decorative knob on top of backrest
+const knobGeom = new THREE.SphereGeometry(knobRadius, 16, 16);
+const knobMesh = new THREE.Mesh(knobGeom, knobMaterial);
+knobMesh.position.set(0, legHeight + seatHeight + backHeight + knobRadius, -(seatDepth / 2) + backThickness / 2);
+group.add(knobMesh);
+
+// Headrest (small cylinder on top of backrest)
+const headrestGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.2, 12);
+const headrestMesh = new THREE.Mesh(headrestGeom, woodMaterial);
+headrestMesh.position.set(0, legHeight + seatHeight + backHeight + 0.1, -(seatDepth / 2) + backThickness / 2);
+group.add(headrestMesh);
+
+return group
+}
+(function(){
+var er=document.getElementById('err');
+if(typeof THREE==='undefined'){er.textContent='3D library failed to load. Check your internet.';return}
+var scene=new THREE.Scene();scene.background=new THREE.Color(0x0d0d0c);
+var cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,100);
+var ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.setSize(innerWidth,innerHeight);document.body.appendChild(ren.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x333344,0.9));
+var dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(5,8,5);scene.add(dl);
+scene.add(new THREE.GridHelper(10,20,0x7C83DB,0x2a2a35));
+var model;try{model=buildModel(THREE)}catch(e){model=new THREE.Group();er.textContent='Model error: '+e.message}
+var box=new THREE.Box3().setFromObject(model);var sz=box.getSize(new THREE.Vector3());var mx=Math.max(sz.x,sz.y,sz.z)||1;model.scale.setScalar(3/mx);
+box=new THREE.Box3().setFromObject(model);var c=box.getCenter(new THREE.Vector3());model.position.x-=c.x;model.position.z-=c.z;model.position.y-=box.min.y;scene.add(model);
+var th=0.8,ph=1.1,d=7,auto=true,drag=false,lx=0,ly=0;
+function cp(){cam.position.set(d*Math.sin(ph)*Math.sin(th),d*Math.cos(ph)+1.2,d*Math.sin(ph)*Math.cos(th));cam.lookAt(0,1.2,0)}
+var el=ren.domElement;el.style.touchAction='none';
+el.addEventListener('pointerdown',function(e){drag=true;auto=false;lx=e.clientX;ly=e.clientY});
+addEventListener('pointerup',function(){drag=false});
+addEventListener('pointermove',function(e){if(!drag)return;th-=(e.clientX-lx)*0.01;ph=Math.max(0.2,Math.min(1.5,ph-(e.clientY-ly)*0.01));lx=e.clientX;ly=e.clientY});
+el.addEventListener('wheel',function(e){e.preventDefault();d=Math.max(3,Math.min(14,d+e.deltaY*0.005))},{passive:false});
+addEventListener('resize',function(){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+(function loop(){requestAnimationFrame(loop);if(auto)th+=0.006;cp();ren.render(scene,cam)})();
+})();
+</script></body></html>

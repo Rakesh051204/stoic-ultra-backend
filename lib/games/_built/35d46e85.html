@@ -1,0 +1,119 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>eiffel tower</title>
+<style>html,body{margin:0;height:100%;background:#0d0d0c;overflow:hidden;font-family:system-ui,sans-serif}#hint{position:fixed;left:0;right:0;bottom:10px;text-align:center;color:#9a9aa5;font-size:12px;pointer-events:none}#rp{position:fixed;top:10px;right:10px;background:#1a1a1f;color:#cfd0ea;border:1px solid #2e2e3a;border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}#err{position:fixed;top:10px;left:10px;right:10px;color:#e88;font-size:12px}</style></head><body>
+<div id="err"></div><button id="rp">Replay build</button><div id="hint">Drag to rotate - scroll to zoom</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+function buildModel(THREE){
+const group = new THREE.Group()
+function part(geo, color, x, y, z) { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 })); m.position.set(x, y, z); group.add(m); return m }
+const iron = 0x6b5a4a
+
+// Base platform
+part(new THREE.BoxGeometry(60, 2, 60), iron, 0, 1, 0)
+
+// Base legs (4)
+const baseLegHeight = 30
+const baseLegY = 2 + baseLegHeight / 2
+for (const x of [30, -30]) {
+  for (const z of [30, -30]) {
+    part(new THREE.CylinderGeometry(4, 4, baseLegHeight, 12), iron, x, baseLegY, z)
+  }
+}
+
+// Base diagonal braces (4)
+const braceSize = [2, 30, 2]
+const braceY = 2 + 30 / 2
+// Front‑back braces
+part(new THREE.BoxGeometry(60, 2, 2), iron, 0, braceY, 30)   // front
+part(new THREE.BoxGeometry(60, 2, 2), iron, 0, braceY, -30)  // back
+// Left‑right braces
+part(new THREE.BoxGeometry(2, 2, 60), iron, 30, braceY, 0)   // right
+part(new THREE.BoxGeometry(2, 2, 60), iron, -30, braceY, 0)  // left
+
+// First platform
+part(new THREE.BoxGeometry(40, 2, 40), iron, 0, 33, 0)
+
+// First legs (4)
+const firstLegHeight = 15
+const firstLegY = 34 + firstLegHeight / 2
+for (const x of [20, -20]) {
+  for (const z of [20, -20]) {
+    part(new THREE.CylinderGeometry(3, 3, firstLegHeight, 12), iron, x, firstLegY, z)
+  }
+}
+
+// First platform braces (4)
+const firstBraceY = 34 + 15 / 2
+part(new THREE.BoxGeometry(40, 2, 2), iron, 0, firstBraceY, 20)   // front
+part(new THREE.BoxGeometry(40, 2, 2), iron, 0, firstBraceY, -20)  // back
+part(new THREE.BoxGeometry(2, 2, 40), iron, 20, firstBraceY, 0)   // right
+part(new THREE.BoxGeometry(2, 2, 40), iron, -20, firstBraceY, 0)  // left
+
+// Second platform
+part(new THREE.BoxGeometry(20, 2, 20), iron, 0, 50, 0)
+
+// Second legs (4)
+const secondLegHeight = 15
+const secondLegY = 51 + secondLegHeight / 2
+for (const x of [10, -10]) {
+  for (const z of [10, -10]) {
+    part(new THREE.CylinderGeometry(2, 2, secondLegHeight, 12), iron, x, secondLegY, z)
+  }
+}
+
+// Tapering shaft (10 stacked cones)
+let shaftBaseY = 66
+const coneHeight = 22
+for (let i = 0; i < 10; i++) {
+  const radius = 20 - i * 1.6   // linear taper from 20 to 4
+  const y = shaftBaseY + coneHeight / 2 + i * coneHeight
+  part(new THREE.ConeGeometry(radius, coneHeight, 12, 1, true), iron, 0, y, 0)
+}
+
+// Lattice ribs (4 horizontal rings)
+const ribHeights = [100, 150, 200, 250]
+for (const y of ribHeights) {
+  // East‑West bar
+  part(new THREE.BoxGeometry(40, 2, 2), iron, 0, y, 0)
+  // North‑South bar
+  part(new THREE.BoxGeometry(2, 2, 40), iron, 0, y, 0)
+}
+
+// Spire cone
+part(new THREE.ConeGeometry(4, 20, 12, 1, true), iron, 0, 286 + 10, 0) // base at 286, center at 286+10
+
+// Antenna tip
+part(new THREE.SphereGeometry(1, 16, 16), iron, 0, 306, 0)
+
+return group
+}
+(function(){
+var er=document.getElementById('err');
+if(typeof THREE==='undefined'){er.textContent='3D library failed to load. Check your internet.';return}
+var scene=new THREE.Scene();scene.background=new THREE.Color(0x0d0d0c);
+var cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,100);
+var ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.setSize(innerWidth,innerHeight);document.body.appendChild(ren.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x333344,0.9));
+var dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(5,8,5);scene.add(dl);
+scene.add(new THREE.GridHelper(10,20,0x7C83DB,0x2a2a35));
+var model;try{model=buildModel(THREE)}catch(e){model=new THREE.Group();er.textContent='Model error: '+e.message}
+var box=new THREE.Box3().setFromObject(model);var sz=box.getSize(new THREE.Vector3());var mx=Math.max(sz.x,sz.y,sz.z)||1;model.scale.setScalar(3/mx);
+box=new THREE.Box3().setFromObject(model);var c=box.getCenter(new THREE.Vector3());model.position.x-=c.x;model.position.z-=c.z;model.position.y-=box.min.y;scene.add(model);
+var parts=[];model.traverse(function(o){if(o.isMesh)parts.push(o)});
+var fin=parts.map(function(o){return {s:o.scale.clone(),y:o.position.y}});
+var N=parts.length,per=Math.max(30,Math.min(110,2600/Math.max(N,1))),t0=performance.now(),hn=document.getElementById('hint'),building=true;
+parts.forEach(function(o){o.visible=false});
+function stepBuild(now){var el=now-t0;for(var i=0;i<N;i++){var k=(el-i*per)/260,o=parts[i];if(k<=0){o.visible=false;continue}o.visible=true;if(k>=1){o.scale.copy(fin[i].s);o.position.y=fin[i].y}else{var e=1-Math.pow(1-k,3);o.scale.set(fin[i].s.x*e,fin[i].s.y*e,fin[i].s.z*e);o.position.y=fin[i].y+(1-e)*0.6}}
+var done=Math.min(N,Math.floor(el/per)+1);hn.textContent=done<N?('Building part '+done+' of '+N):'Drag to rotate - scroll to zoom';return el>per*N+300}
+document.getElementById('rp').onclick=function(){t0=performance.now();building=true};
+var th=0.8,ph=1.1,d=7,auto=true,drag=false,lx=0,ly=0;
+function cp(){cam.position.set(d*Math.sin(ph)*Math.sin(th),d*Math.cos(ph)+1.2,d*Math.sin(ph)*Math.cos(th));cam.lookAt(0,1.2,0)}
+var el=ren.domElement;el.style.touchAction='none';
+el.addEventListener('pointerdown',function(e){drag=true;auto=false;lx=e.clientX;ly=e.clientY});
+addEventListener('pointerup',function(){drag=false});
+addEventListener('pointermove',function(e){if(!drag)return;th-=(e.clientX-lx)*0.01;ph=Math.max(0.2,Math.min(1.5,ph-(e.clientY-ly)*0.01));lx=e.clientX;ly=e.clientY});
+el.addEventListener('wheel',function(e){e.preventDefault();d=Math.max(3,Math.min(14,d+e.deltaY*0.005))},{passive:false});
+addEventListener('resize',function(){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+(function loop(){requestAnimationFrame(loop);if(building){building=!stepBuild(performance.now())}if(auto)th+=(building?0.012:0.006);cp();ren.render(scene,cam)})();
+})();
+</script></body></html>

@@ -1,9 +1,27 @@
+import gameChat from './lib/gameChat.cjs'
+import gamesRouter from './routes/games.cjs'
+import { handleJobRequest } from './lib/jobIntent.js'
+import { registerMail } from './lib/mailRoute.js'
+import { handleModuleRequest } from './lib/modules.js'
+import { handleImageRequest } from './lib/imageIntent.js'
+console.log('[BOOT] jobs engine patch v3 loaded')
 import dns from 'dns'
 import fs from 'fs'
 dns.setDefaultResultOrder('ipv4first')
+import 'dotenv/config'
 import express from 'express'
 import { checkSearxngHealth } from './services/webSearchService.js'
+import { isResearchRequest, runResearch } from './lib/research.js'
 import { searchVideos, wantsVideos } from './services/videoService.js'
+import { WIDGET_PROMPT } from './services/widgetPrompt.js'
+import { ANSWER_FIRST_PROMPT } from './services/answerFirstPrompt.js'
+import deployRouter from './routes/deploy.js'
+import { scoreResume } from './services/atsScorer.js'
+import { buildAtsBlock } from './services/atsWidget.js'
+import { detectClocks } from './services/clockService.js'
+import { wantsJobs, buildJobsReport, friendlyText } from './services/jobsReport.js'
+import jobsReportRouter from './routes/jobsReport.js'
+import resumeRouter from './routes/resume.js'
 import { runSearch } from './searchPipeline.js'
 import { detectLanguageSwitch } from './languageIntent.js'
 import cors from 'cors'
@@ -14,6 +32,15 @@ import projectsRouter from './routes/projects.js'
 import { detectLocationIntent } from './utils/locationIntent.js'
 import { geocodePlace, findNearby } from './services/geoService.js'
 import { STOIC_SYSTEM_PROMPT } from './stoicSystemPrompt.js'
+import { getToneContext, CRISIS_PROMPT, CRISIS_FALLBACK } from './toneEngine.js'
+import { isHardQuestion, DEEP_THINK_PROMPT } from './lib/reasoningEngine.js'
+import { skipSearch } from './lib/searchGate.js'
+const WEBSITE_RE_BASE = /\b(build|make|create|design|develop|generate)\b[\s\S]{0,60}\b(website|web ?site|landing page|web ?page|web ?app|portfolio|homepage)\b|\b(website|landing page)\b/i
+const WEBSITE_FENCE = String.fromCharCode(96, 96, 96)
+const WEBSITE_SLIM = 'You are Stoic, an expert web designer. Reply with one short line, then ONE complete single-file page inside a fenced code block that starts with ' + WEBSITE_FENCE + 'website and ends with ' + WEBSITE_FENCE + '. The page starts with <!DOCTYPE html> and ends with </html>. All CSS in one <style> using CSS variables, all JS in one <script> (max 12 lines), no external files except Google Fonts. Design it like a premium real brand site (Starbucks or Apple level): sticky header, full-width hero with a dark gradient overlay and a big headline, product or menu cards with prices, an about section, a visit-our-outlet section, and a footer with address and hours. REAL PHOTOS: use 6 img tags written exactly like <img class="ph" data-photo="DESCRIPTION"> where DESCRIPTION is a specific 12 to 20 word photo description (subject, setting, lighting, camera angle). Never write a src attribute and never draw scenes with SVG or CSS art. Style .ph with width 100 percent, a fixed height, object-fit cover and rounded corners. The hero also uses a photo: a position relative box with the img absolutely filling it, then the dark gradient overlay and the headline on top. HARD LIMIT: the page MUST be finished, so keep the WHOLE page under 10000 characters. CSS ORDER: put only a tiny style in the head (CSS variables, body font, the .ph rule, max 12 lines), then write the complete body content, then put ALL remaining CSS in a second style tag at the very END of the body, before the script, so a cut-off page still shows its content. Emoji for icons, emoji for icons, never SVG path data. Content must be visible by default: never use opacity 0 waiting for a script. Use the real shop or brand name and specific copy (menu items with prices, address, hours). After the block write two short lines about what you built.'
+const HOUSE_SLIM = 'You are Stoic, a residential architect and web designer. Reply with one short line, then ONE complete single-file page inside a fenced code block that starts with ' + WEBSITE_FENCE + 'website and ends with ' + WEBSITE_FENCE + '. The page starts with <!DOCTYPE html> and ends with </html>. All CSS in one <style>, JS minimal, no external files except Google Fonts. It is a realistic architectural concept presentation with these sections in order: (1) full-width hero with a photo of the exterior and the project name; (2) key facts row (style, bedrooms, bathrooms, built-up area, plot size, pool); (3) Floor plan: ONE clean inline SVG with viewBox 0 0 800 500 drawn only with rect, line and text elements: thick dark wall outlines, every room labeled with its name and size in feet, door gaps, rooms scaled sensibly to the plot and the room counts the user asked for, white lines on a deep blue blueprint background, at most 30 elements; (4) room schedule table with sizes; (5) photo gallery of 4 interior and garden photos; (6) materials and finishes plus an approximate budget range; (7) one-line disclaimer that this is an idea sketch, not a construction drawing. REAL PHOTOS: use 6 img tags written exactly like <img class="ph" data-photo="DESCRIPTION"> with a specific 12 to 20 word photo description each: exterior at dusk with pool, living room, open kitchen, master bedroom, pool and garden aerial view, entrance courtyard. Never write a src attribute. NEVER draw the house, rooms or landscape with SVG shapes or CSS art: the ONLY SVG allowed is the floor plan. Style .ph with width 100 percent, a fixed height, object-fit cover and rounded corners. HARD LIMIT: finish the page, keep the WHOLE page under 10000 characters. CSS ORDER: put only a tiny style in the head (CSS variables, body font, the .ph rule, max 12 lines), then write the complete body content, then put ALL remaining CSS in a second style tag at the very END of the body, before the script, so a cut-off page still shows its content. Emoji for icons, emoji for icons. Content visible by default, never opacity 0 waiting for a script. After the block write two short lines about what you built.'
+const HOUSE_RE = /\b(house|home(?!\s?page)|villa|bungalow|floor ?plan|architect\w*|bedrooms?)\b[\s\S]*\b(design|draw|sketch|plan|layout|blueprint|build)\b|\b(design|draw|sketch|plan|layout|blueprint|build)\b[\s\S]*\b(house|home(?!\s?page)|villa|bungalow|floor ?plan|architect\w*|bedrooms?)\b/i
+const WEBSITE_RE = { test: (m) => WEBSITE_RE_BASE.test(String(m)) || HOUSE_RE.test(String(m)) }
 const CODE_TASK_RE = /\b(code|solve|implement|function|leetcode|python|java|c\+\+|javascript|algorithm|program)\b|Example 1:|Constraints:/i
 
 function shouldShowImages(message) {
@@ -26,13 +53,22 @@ function shouldShowImages(message) {
   const entity = /^\s*(who\s+(is|was|are|were)|where\s+(is|are)|what\s+is\s+the\s+(capital|tallest|largest)|(best|top)\s+(places|things|hotels|beaches|restaurants)|(places|things)\s+to\s+(visit|do|see))\b/i
   return entity.test(m)
 }
-async function saveChatTurn(sessionId, userText, assistantText, sources = [], images = []) {
+async function saveChatTurn(sessionId, userText, assistantText, sources = [], images = [], meta = {}) {
   try {
     if (!sessionId || sessionId === 'voice') return
-    const r = await supabase.from('messages').insert([
+    const um = meta && meta.user ? meta.user : null
+    const am = meta && meta.assistant ? meta.assistant : null
+    const rows = [
       { session_id: sessionId, role: 'user', content: userText },
       { session_id: sessionId, role: 'assistant', content: assistantText, sources: sources || [], images: images || [] },
-    ])
+    ]
+    if (um) rows[0].meta = um
+    if (am) rows[1].meta = am
+    let r = await supabase.from('messages').insert(rows)
+    if (r.error && (um || am)) {
+      console.error('save with meta failed, retrying without it:', r.error.message)
+      r = await supabase.from('messages').insert(rows.map(({ meta, ...rest }) => rest))
+    }
     if (r.error) console.error('save messages failed:', r.error.message)
   } catch (e) { console.error('save messages error:', e.message) }
 }
@@ -47,11 +83,13 @@ process.on('exit', (code) => console.log(`ðŸšª Process exiting with code ${c
 process.on('uncaughtException', (err) => console.error('ðŸ”¥ UNCAUGHT:', err))
 process.on('unhandledRejection', (err) => console.error('ðŸ”¥ UNHANDLED REJECTION:', err))
 
-const app = express()
+const app = express()
+app.use(gameChat)
+registerMail(app)
 const PORT = process.env.PORT || 3001
 
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '5mb' }))
 app.use('/api/conversations', conversationsRouter)
 app.use('/api/projects', projectsRouter)
 app.use(uploadRouter)
@@ -318,7 +356,7 @@ async function generateFollowUps(message, answerContent) {
         }
       ],
       temperature: 0.6,
-      max_tokens: 300,
+      max_tokens: 1200, reasoning_effort: 'low',
     })
     const raw = followUpCompletion.choices?.[0]?.message?.content || ''
     const cleaned = raw
@@ -334,6 +372,9 @@ async function generateFollowUps(message, answerContent) {
   }
 }
 
+app.use('/api/resume', resumeRouter)
+app.use('/api/deploy', deployRouter)
+app.use('/api/jobs', jobsReportRouter)
 app.post('/api/chat/stream', async (req, res) => {
   const { message, sessionId = 'default', userLat, userLon } = req.body
 
@@ -358,8 +399,65 @@ app.post('/api/chat/stream', async (req, res) => {
     res.write(`data: ${JSON.stringify({ event, ...data })}\n\n`)
   }
 
+    /* RESEARCH-HOOK */ try { if (isResearchRequest(message)) { let _racc = ''; const _rsend = (ev, d) => { if (ev === 'token') _racc += (d && d.text) || ''; send(ev, d) }; await runResearch({ message, send: _rsend }); try { appendHistory(sessionId, 'user', message); appendHistory(sessionId, 'assistant', _racc); await saveChatTurn(sessionId, message, _racc, [], []) } catch (_s) { console.error('[research] save failed:', _s.message) } send('followups', { followUps: [] }); send('done', {}); return res.end() } } catch (e) { console.error('[research] failed:', e.stack || e.message) }
+    /* MOD-HOOK-EARLY */ try { console.log('[mod] checking:', String(message).slice(0, 60)); let _rs2 = ''; try { _rs2 = (getAttachments(sessionId) || []).map(a => a.textContent || a.extractedText || '').join('\n') } catch (_e) {} let _acc = ''; const _send = (ev, d) => { if (ev === 'token') _acc += (d && d.text) || ''; send(ev, d) }; if (await handleModuleRequest({ message, send: _send, resumeText: _rs2 })) { try { appendHistory(sessionId, 'user', message); appendHistory(sessionId, 'assistant', _acc); await saveChatTurn(sessionId, message, _acc, [], []) } catch (_s) { console.error('[mod] save failed:', _s.message) } send('followups', { followUps: [] }); send('done', {}); return res.end() } } catch (e) { console.error('[mod] failed:', e.stack || e.message) }
   try {
-    if (isChitChat(message)) {
+    var __tone = { mood: 'neutral', instruction: '' }
+    try { __tone = await getToneContext(String(message), getHistory(sessionId) || [], FOLLOWUP_MODEL) } catch (_t) { console.error('[tone] failed:', _t.message) }
+    if (__tone.mood === 'crisis') {
+      console.log('[tone] crisis path')
+      send('thinking', { text: 'Replying' })
+      send('sources', { sources: [] })
+      send('images', { images: [] })
+      const _cs = await groq.chat.completions.create({
+        model: ANSWER_MODEL,
+        messages: [{ role: 'system', content: CRISIS_PROMPT }, ...((getHistory(sessionId) || []).slice(-6)), { role: 'user', content: message }],
+        temperature: 0.5,
+        max_completion_tokens: 900,
+        reasoning_effort: 'low',
+        stream: true
+      })
+      let _cr = ''
+      for await (const chunk of _cs) {
+        const d = chunk.choices?.[0]?.delta?.content
+        if (d) { _cr += d; send('token', { text: d }) }
+      }
+      if (!_cr.trim()) { _cr = CRISIS_FALLBACK; send('token', { text: _cr }) }
+      appendHistory(sessionId, 'user', message)
+      appendHistory(sessionId, 'assistant', _cr)
+      await saveChatTurn(sessionId, message, _cr, [], [])
+      send('followups', { followUps: [] })
+      send('done', {})
+      return res.end()
+    }
+    if (['sad', 'anxious', 'discouraged'].includes(__tone.mood) && !isCodeTask && !/\b(ats|resume|cv|jobs?|vacanc\w*|hiring|salary)\b/i.test(String(message))) {
+      console.log('[tone] support path (no search):', __tone.mood)
+      send('thinking', { text: 'Replying' })
+      send('sources', { sources: [] })
+      send('images', { images: [] })
+      const _SUP = 'You are Stoic, a warm, grounded friend. The user is sharing how they feel. Rules: 1) Reply like a caring person, not a search engine: 3 to 6 short sentences, no bullet points, no headings, no citations, no source mentions. 2) Start by acknowledging what they said in your own words, without repeating it back mechanically. 3) Offer one or two small, realistic things that could help today, or simply ask one gentle open question about what is weighing on them. 4) No toxic positivity, no lectures, no diagnosing. 5) If they mention hopelessness or not wanting to live, respond with care and suggest talking to someone they trust or a crisis line (Tele-MANAS 14416 in India, 112 in an emergency). 6) Reply in the language the user wrote in.'
+      const _ss = await groq.chat.completions.create({
+        model: ANSWER_MODEL,
+        messages: [{ role: 'system', content: _SUP + '\n' + (__tone.instruction || '') }, ...((getHistory(sessionId) || []).slice(-6)), { role: 'user', content: message }],
+        temperature: 0.6,
+        max_completion_tokens: 700,
+        reasoning_effort: 'low',
+        stream: true
+      })
+      let _sr = ''
+      for await (const chunk of _ss) {
+        const d = chunk.choices?.[0]?.delta?.content
+        if (d) { _sr += d; send('token', { text: d }) }
+      }
+      if (!_sr.trim()) { _sr = "That sounds heavy, and I'm glad you said it. What's weighing on you the most right now?"; send('token', { text: _sr }) }
+      appendHistory(sessionId, 'user', message)
+      appendHistory(sessionId, 'assistant', _sr)
+      await saveChatTurn(sessionId, message, _sr, [], [])
+      send('followups', { followUps: [] })
+      send('done', {})
+      return res.end()
+    }
+    if (isChitChat(message) && !/\b(ats|resume|cv)\b/i.test(message)) {
       send('thinking', { text: 'Replying' })
       send('sources', { sources: [] })
       send('images', { images: [] })
@@ -367,7 +465,7 @@ app.post('/api/chat/stream', async (req, res) => {
       const chitchatStream = await groq.chat.completions.create({
         model: FOLLOWUP_MODEL,
         messages: [
-          { role: 'system', content: CHITCHAT_SYSTEM_PROMPT },
+          { role: 'system', content: CHITCHAT_SYSTEM_PROMPT + (typeof __tone !== 'undefined' && __tone && __tone.instruction ? '\n' + __tone.instruction : '') },
           { role: 'user', content: message }
         ],
         temperature: 0.9,
@@ -393,16 +491,21 @@ app.post('/api/chat/stream', async (req, res) => {
       return res.end()
     }
 
-    if (isCasualKnowledgeCheck(message)) {
+    if (isCasualKnowledgeCheck(message) && !/\b(ats|resume|cv)\b/i.test(message)) {
       send('thinking', { text: 'Thinking about it' })
 
-      const { sources, images } = (CODE_TASK_RE.test(message) ? { sources: [], images: [] } : await runSearch(message, 'balanced'))
+      const { sources, images } = ((CODE_TASK_RE.test(message) || skipSearch(message)) ? { sources: [], images: [] } : await runSearch(message, 'balanced'))
       send('sources', { sources })
       send('images', { images: shouldShowImages(message) ? images : [] })
 
+      // JOBS-ENGINE
+      try {
+        const _resume = getAttachments(sessionId).map(a => a.textContent || a.extractedText || '').join('\n')
+        if (await handleJobRequest({ message, sessionId, send, resumeText: _resume })) { clearAttachments(sessionId); send('done', {}); return res.end() }
+      } catch (e) { console.error('[jobs] engine failed:', e.message) }
       const sourcesContext = buildSourcesContext(sources)
       const casualMessages = [
-        { role: 'system', content: CASUAL_KNOWLEDGE_SYSTEM_PROMPT },
+        { role: 'system', content: WIDGET_PROMPT + '\n' + CASUAL_KNOWLEDGE_SYSTEM_PROMPT + '\n' + ANSWER_FIRST_PROMPT + (typeof __tone !== 'undefined' && __tone && __tone.instruction ? '\n' + __tone.instruction : '') },
       ]
       if (sourcesContext) casualMessages.push({ role: 'system', content: sourcesContext })
       casualMessages.push({ role: 'user', content: message })
@@ -557,19 +660,42 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
     }
     // ------------------------------------------------------------------------
 
+    /* ENGINE-HOOK2 */ try { const _rs = (getAttachments(sessionId) || []).map(a => a.textContent || a.extractedText || '').join('\n'); if (await handleJobRequest({ message, sessionId, send, resumeText: _rs })) { send('followups', { followUps: [] }); send('done', {}); return res.end() } } catch (e) { console.error('[jobs] engine failed:', e.message) }
+    /* IMG-HOOK */ try { if (await handleImageRequest({ message, send })) { send('followups', { followUps: [] }); send('done', {}); return res.end() } } catch (e) { console.error('[img] failed:', e.message) }
     send('thinking', { text: 'Understanding your question' })
     const hasImageUpload = getAttachments(sessionId).length > 0
-    send('thinking', { text: hasImageUpload ? 'Reading your file' : 'Searching the web' })
+    const attachMeta = (getAttachments(sessionId) || []).map((a) => ({ id: a.id, name: a.name || a.originalname || a.filename || 'file', type: a.type || a.mimetype || a.mimeType || '', mimeType: a.mimetype || a.mimeType || a.type || '' }))
+    if (wantsJobs(message) || /\b(jobs?|roles?|openings?|vacanc\w+)\b/i.test(message) && /\bapply\b|\blinks?\b|\bmatching\b/i.test(message)) {
+      try {
+        console.log('[jobs] building report for:', message)
+        send('thinking', { text: 'Reading your request' }); send('thinking', { text: 'Checking Greenhouse and Lever career pages' })
+        const report = await buildJobsReport(message, { base: req.protocol + '://' + req.get('host'), resumeText: ((getAttachments(sessionId) || []).find((a) => a.extractedText) || {}).extractedText || '' })
+        console.log('[jobs] rows:', report.rows.length); send('thinking', { text: 'Found ' + report.rows.length + ' open roles, building your report' })
+        if (report.rows.length) {
+          const jobsText = friendlyText(report)
+          send('report', { report })
+          for (const part of (jobsText.match(/[\s\S]{1,4}/g) || [])) { send('token', { text: part }); await new Promise((r) => setTimeout(r, 9)) }
+          try { appendHistory(sessionId, 'user', message); appendHistory(sessionId, 'assistant', jobsText); await saveChatTurn(sessionId, message, jobsText, [], [], { user: (getAttachments(sessionId) || []).length ? { attachments: getAttachments(sessionId).map((a) => ({ id: a.id, name: a.name || a.originalname || a.filename || 'file', type: a.type || a.mimetype || a.mimeType || '', mimeType: a.mimetype || a.mimeType || a.type || '' })) } : null, assistant: { report } }) } catch (se) { console.log('[jobs] save', se.message) }
+          send('followups', { followUps: [] })
+          send('done', {})
+          return res.end()
+        }
+      } catch (e) { console.log('[jobs] ERROR', e.stack || e.message) }
+    }
+    send('thinking', { text: hasImageUpload ? 'Reading your file' : ((skipSearch(message) || CODE_TASK_RE.test(message)) ? 'Thinking it through' : 'Searching ' + shortTopic(resolveSearchQuery(message, sessionId))) })
 
     const searchQuery = resolveSearchQuery(message, sessionId)
-    const { sources, images } = ((CODE_TASK_RE.test(message) || hasImageUpload) ? { sources: [], images: [] } : await runSearch(searchQuery, 'balanced'))
+    const { sources, images } = ((CODE_TASK_RE.test(message) || hasImageUpload || skipSearch(message)) ? { sources: [], images: [] } : await runSearch(searchQuery, 'balanced'))
 
     console.log(`ðŸ–¼ï¸ Images from runSearch: ${images?.length || 0}`)
 
     send('sources', { sources })
     send('images', { images: shouldShowImages(message) ? images : [] })
+    const clockList = hasImageUpload ? [] : detectClocks(message)
+    console.log('[clocks]', clockList.length)
+    if (clockList.length) send('clocks', { clocks: clockList })
     if (!hasImageUpload && wantsVideos(message)) {
-      const videos = await searchVideos(searchQuery, 4)
+      const videos = await searchVideos(searchQuery, 4); res.locals.savedVideos = videos
       if (videos.length) send('videos', { videos })
     }
 
@@ -608,13 +734,18 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
 
     const sourcesContext = buildSourcesContext(sources)
     const promptMessages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: WIDGET_PROMPT + '\n' + SYSTEM_PROMPT + '\n' + ANSWER_FIRST_PROMPT + (typeof __tone !== 'undefined' && __tone && __tone.instruction ? '\n' + __tone.instruction : '') },
     ]
     if (sourcesContext) promptMessages.push({ role: 'system', content: sourcesContext })
-    promptMessages.push(...getHistory(sessionId))
+    if (!hasImageUpload && wantsVideos(message)) promptMessages.push({ role: 'system', content: 'Video cards with real, working videos are shown automatically below your answer. Do NOT write any video titles, YouTube links or URLs, and never invent them. Write only a short 1-2 sentence helpful intro about the topic or channel, and mention that the videos are below.' })
+    if (/\b(write|compose|make|give)\b[\s\S]*\b(poem|poetry|haiku|sonnet|verse|lyrics)\b/i.test(String(message))) promptMessages.push({ role: 'system', content: 'POEM FORMAT (follow exactly): Line 1 is the poem title in bold, like **Title**. Then a blank line. Then the poem in stanzas of 4 short lines (6 to 9 words per line) with a simple rhyme (ABAB or AABB). Put EVERY line of the poem on its own line, and end each line except the last of its stanza with two spaces so the line break is kept. Leave one blank line between stanzas. Start each line with a capital letter. Use 3 to 4 stanzas unless the user asks for a different length or form (haiku = 3 lines of 5/7/5 syllables). After the last stanza leave a blank line and add one short italic line offering another style or language. No sources, no citations, no explanation before or after the poem. If the user wrote in another language, write the poem in that language.' })
+promptMessages.push(...getHistory(sessionId))
+    const MATH_RE = /\b(solve|prove|find (the )?(minimum|maximum|value|all|smallest|largest)|integral|derivative|equation|inequality|probability|limit of|sum of|number theory|matrix|determinant|polynomial|modulo|divisor)\b/i // MATH-FORMAT
+if (MATH_RE.test(message)) promptMessages.push({ role: 'system', content: "MATH FORMAT (follow exactly, like a textbook solution):\nLine 1: \"We need to ...\" restating the problem, with the key equation on its own line.\nThen for each step: a bold line \"**Step N: short title**\", then 1-2 short sentences, then the equation on its own line.\nUse \\( ... \\) for inline math and \\[ ... \\] for every important equation on its own line. Never put math in backticks or code blocks. Never use \\begin{align}; use \\begin{aligned} inside \\[ \\].\nAlways end with a line \"**Answer:**\" followed by the final result in \\[ \\boxed{...} \\]. Never leave the answer empty. Check the result with a small example before answering." })
     promptMessages.push({ role: 'user', content: message })
 
     const attachments = getAttachments(sessionId)
+    attachments.forEach(a => { if (!a.textContent) a.textContent = a.extractedText || a.text || '' }) // ATT-NORMALIZE
     console.log('ATTACH DEBUG session:', sessionId, 'count:', attachments.length, attachments.map(a => a.type + ':' + (a.mimetype || '') + ':' + (a.textContent ? 'hasText' : 'noText')).join(', '))
     const imageAttachments = attachments.filter(a => a.type === 'image')
     const textAttachments = attachments.filter(a => a.textContent)
@@ -649,14 +780,33 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
     }
 
     const ATS_RE = /\b(ats|resume score|rate (my|this) (resume|cv)|review (my|this) (resume|cv)|resume (check|review))\b/i
-    if (ATS_RE.test(message) && textAttachments.length > 0) {
-      promptMessages.push({ role: 'system', content: 'The user wants an ATS review of the attached resume. Reply in this exact structure: 1) "ATS Score: NN/100" on the first line. 2) A short breakdown with a score for each: Keywords, Formatting and parsing, Sections and structure, Impact and metrics, Role match. 3) "Top fixes" as 5 numbered, specific changes. 4) "Missing keywords" as a comma list. If no job description was given, score against the role the resume targets and say so in one line. Be honest and strict, never inflate the score.' })
+    console.log('[ats] check', ATS_RE.test(message), 'files', attachments.length, 'withText', textAttachments.length, 'chars', textAttachments.reduce((n, a) => n + String(a.textContent || '').length, 0))
+if (ATS_RE.test(message) && textAttachments.length > 0) {
+      try {
+        const rt = textAttachments.map((a) => a.textContent || a.extractedText || a.text || a.content || '').join('\n') || (typeof attachmentContext === 'string' ? attachmentContext : '')
+        const jd = message.length > 300 ? message : ''
+        const r = scoreResume(rt, jd)
+        console.log('[ats] score', r.score, 'words', r.stats.words)
+        try { res.locals.atsFence = buildAtsBlock(r, rt, jd) } catch (e) { console.error('[ats] widget build failed:', e.message) }
+        const cats = r.categories.map((c) => c.name + ': ' + c.score + '/' + c.max).join('; ')
+        const iss = r.issues.slice(0, 8).map((x) => '[' + x.severity + '] ' + x.message + ' -> Fix: ' + x.fix).join('\n')
+        const kw = r.keywords ? 'Matched keywords: ' + r.keywords.matched.join(', ') + '\nMissing keywords: ' + r.keywords.missing.join(', ') : r.note
+        res.locals.atsText = 'VERIFIED ATS RESULT, computed by code from the resume text. Use these exact numbers. Never estimate or change a score.\nOverall: ' + r.score + '/100 (' + r.grade + ')\nBreakdown: ' + cats + '\nIssues found:\n' + iss + '\n' + kw + '\nThe format instructions follow. Where they ask for scores, use the verified numbers above, and use the verified issues as the top fixes. '
+      } catch (e) { console.error('[ats] scorer failed:', e.message) }
+      promptMessages.push({ role: 'system', content: (res.locals.atsText || '') + 'The user wants an ATS review of the attached resume. Reply in this exact structure: 1) One short intro sentence. 2) Then this block, copied character for character with no changes and no extra text inside it: ' + (res.locals.atsFence || '') + ' 3) "What is strong" as 3 short bullets. 4) "What is holding the score back" as the top fixes, numbered, each specific and tied to the verified issues above. 5) One closing line telling the user to pick their target role in the Role fit tab of the card. If no job description was given, score against the role the resume targets and say so in one line. Be honest and strict, never inflate the score.' })
     }
     clearAttachments(sessionId)
 
-    if (CODE_TASK_RE.test(message)) { promptMessages.unshift({ role: 'system', content: 'For coding requests, always give the complete working solution in a fenced code block first, then a short explanation. Never answer a coding request with search results or links.' }) }
-  const reasoningEffort = (CODE_TASK_RE.test(message) ? 'high' : pickReasoningEffort(message))
-    const desiredMaxTokens = (CODE_TASK_RE.test(message) ? 8192 : pickMaxTokens(message))
+    if (CODE_TASK_RE.test(message)) { promptMessages.unshift({ role: 'system', content: 'For coding requests, always give the complete working solution in a fenced code block first, then a short explanation. Never answer a coding request with search results or links. EXCEPTION: when asked to build a website, landing page, web app or game, output one complete page in a fenced block with language website (not html) and follow the WEBSITES rules.' }) }
+  if (!hasImageUpload && wantsVideos(message)) promptMessages.push({ role: 'system', content: 'FINAL RULE: real video cards are shown automatically under your reply. Do not list any videos. Do not write video titles, quotation-marked names, YouTube links or URLs. Reply with 1-2 short sentences about the topic and say the videos are below.' })
+  if (!hasImageUpload && wantsVideos(message)) promptMessages.push({ role: 'system', content: 'FINAL RULE: real video cards are shown automatically under your reply. Do not list any videos. Do not write video titles, quotation-marked names, YouTube links or URLs. Reply with 1-2 short sentences about the topic and say the videos are below.' })
+  if (WEBSITE_RE.test(message) && !/resume|cv|attached|upload/i.test(String(message))) {
+    promptMessages.splice(0, promptMessages.length, { role: 'system', content: (HOUSE_RE.test(String(message)) ? HOUSE_SLIM : WEBSITE_SLIM) }, { role: 'user', content: String(message) })
+  }
+  const _deep = isHardQuestion(message) && !WEBSITE_RE.test(message) && !CODE_TASK_RE.test(message)
+  if (_deep && !MATH_RE.test(message)) promptMessages.push({ role: 'system', content: DEEP_THINK_PROMPT })
+  const reasoningEffort = (WEBSITE_RE.test(message) ? 'low' : CODE_TASK_RE.test(message) ? 'high' : (_deep ? 'high' : pickReasoningEffort(message)))
+    const desiredMaxTokens = (WEBSITE_RE.test(message) ? 14000 : CODE_TASK_RE.test(message) ? 8192 : pickMaxTokens(message))
     const maxTokens = safeMaxCompletionTokens(promptMessages, desiredMaxTokens)
     send('thinking', { text: imageAttachments.length > 0 ? 'Looking at what you sent' : 'Reasoning through the answer' })
 
@@ -703,10 +853,11 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
     console.log(`âœ… Stream finished: ${chunkCount} chunks, ${fullContent.length} chars, ${fullReasoning.length} reasoning chars, effort=${reasoningEffort}, maxTokens=${maxTokens} (desired ${desiredMaxTokens}), sourcesGivenToModel=${sources.filter(s => s.domain).length}, model=${modelToUse}`)
     try {
       if (sessionId && sessionId !== 'voice') {
-        const saveRes = await supabase.from('messages').insert([
-          { session_id: sessionId, role: 'user', content: message },
-          { session_id: sessionId, role: 'assistant', content: fullContent, sources: sources || [], images: (shouldShowImages(message) ? images : []) || [] },
-        ])
+        const userRow = { session_id: sessionId, role: 'user', content: message }
+        if (attachMeta.length) userRow.meta = { attachments: attachMeta }
+        const asstRow = { session_id: sessionId, role: 'assistant', content: fullContent, sources: sources || [], images: (shouldShowImages(message) ? images : []) || [], ...(((res.locals.savedVideos || []).length) ? { meta: { videos: res.locals.savedVideos } } : {}) }
+        let saveRes = await supabase.from('messages').insert([userRow, asstRow])
+        if (saveRes.error && userRow.meta) { delete userRow.meta; saveRes = await supabase.from('messages').insert([userRow, asstRow]) }
         if (saveRes.error) console.error('save messages failed:', saveRes.error.message)
       }
     } catch (e) { console.error('save messages error:', e.message) }
@@ -720,6 +871,22 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
     appendHistory(sessionId, 'assistant', fullContent)
 
     const followUps = await generateFollowUps(message, fullContent)
+    ;(async () => {
+      try {
+        if (sessionId && sessionId !== 'voice') {
+          const { data: last } = await supabase.from('messages').select('id, meta').eq('session_id', sessionId).eq('role', 'assistant').order('created_at', { ascending: false }).limit(1)
+          if (last && last[0]) await supabase.from('messages').update({ meta: { ...(last[0].meta || {}), followUps } }).eq('id', last[0].id)
+        }
+      } catch (e) { console.error('save followups failed:', e.message) }
+    })()
+    ;(async () => {
+      try {
+        if (sessionId && sessionId !== 'voice') {
+          const { data: last } = await supabase.from('messages').select('id, meta').eq('session_id', sessionId).eq('role', 'assistant').order('created_at', { ascending: false }).limit(1)
+          if (last && last[0]) await supabase.from('messages').update({ meta: { ...(last[0].meta || {}), followUps } }).eq('id', last[0].id)
+        }
+      } catch (e) { console.error('save followups failed:', e.message) }
+    })()
     send('followups', { followUps })
     send('done', {})
     res.end()
@@ -732,6 +899,7 @@ Original answer to re-express in full, in ${targetLanguage}: "${previousAnswer}"
   }
 })
 
+app.use('/api/games', gamesRouter)
 app.listen(PORT, () => {
   console.log(`âœ… Stoic backend running on http://localhost:${PORT}`)
   console.log(`ðŸ”‘ API key present: ${!!process.env.GROQ_API_KEY}`)
@@ -745,3 +913,11 @@ setInterval(() => {}, 1000 * 60 * 60)
 
 
 
+
+function shortTopic(q = '') {
+  const stop = new Set(['no','iam','im','i','am','is','are','was','the','a','an','of','in','on','at','to','for','and','or','but','that','this','they','them','tell','me','my','us','we','you','your','please','pls','can','could','would','what','who','whom','which','where','when','why','how','give','show','find','about','while','ask','asked','do','does','did','it','its','with','from','by','as','so','then','than','be','been','just','like']);
+  const words = String(q).replace(/[^\p{L}\p{N}\s'-]/gu, ' ').split(/\s+/).filter(Boolean);
+  const keep = words.filter((w) => !stop.has(w.toLowerCase()));
+  const out = (keep.length ? keep : words).slice(0, 4).join(' ');
+  return out.length > 32 ? out.slice(0, 32).trim() + '…' : out;
+}

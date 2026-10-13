@@ -39,13 +39,14 @@ function setCached(key, value) {
 }
 
 // --- SearXNG JSON API ---
+import { fallbackSearch } from './fallbackSearch.js'
 export async function searxngSearch(query, maxResults = 8) {
   const pages = Math.min(Math.ceil(maxResults / 10), 4)
   const lists = await Promise.all(
     Array.from({ length: pages }, (_, i) =>
       axios.get(`${SEARXNG_URL}/search`, {
         params: { q: query, format: 'json', categories: 'general', pageno: i + 1 },
-        timeout: 8000,
+        timeout: 2500,
       }).then((r) => r.data?.results || []).catch(() => [])
     )
   )
@@ -58,6 +59,7 @@ export async function searxngSearch(query, maxResults = 8) {
       results.push({ title: r.title, url: r.url, snippet: r.content || '' })
     }
   }
+  if (results.length === 0) { try { const fb = await fallbackSearch(query, maxResults); if (fb.length) return fb } catch (e) { console.log('[search] fallback failed:', e.message) } }
   return results.slice(0, maxResults)
 }
 

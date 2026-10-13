@@ -1,0 +1,205 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>3D robot</title>
+<style>html,body{margin:0;height:100%;background:#0d0d0c;overflow:hidden;font-family:system-ui,sans-serif}#hint{position:fixed;left:0;right:0;bottom:10px;text-align:center;color:#9a9aa5;font-size:12px;pointer-events:none}#err{position:fixed;top:10px;left:10px;right:10px;color:#e88;font-size:12px}</style></head><body>
+<div id="err"></div><div id="hint">Drag to rotate - scroll to zoom</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+function buildModel(THREE){
+const group = new THREE.Group();
+
+// Materials
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+const headMat = new THREE.MeshStandardMaterial({ color: 0xdddddd });
+const eyeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+const accentMat = new THREE.MeshStandardMaterial({ color: 0x0066ff });
+const metalMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+
+// ---------- Legs ----------
+const legRadius = 0.08;
+const lowerLegHeight = 0.4;
+const upperLegHeight = 0.5;
+
+// Left lower leg
+const leftLowerLegGeo = new THREE.CylinderGeometry(legRadius, legRadius, lowerLegHeight, 16);
+const leftLowerLeg = new THREE.Mesh(leftLowerLegGeo, metalMat);
+leftLowerLeg.position.set(-0.12, lowerLegHeight / 2, 0);
+group.add(leftLowerLeg);
+
+// Left upper leg
+const leftUpperLegGeo = new THREE.CylinderGeometry(legRadius, legRadius, upperLegHeight, 16);
+const leftUpperLeg = new THREE.Mesh(leftUpperLegGeo, metalMat);
+leftUpperLeg.position.set(-0.12, lowerLegHeight + upperLegHeight / 2, 0);
+group.add(leftUpperLeg);
+
+// Right lower leg
+const rightLowerLeg = leftLowerLeg.clone();
+rightLowerLeg.position.x = 0.12;
+group.add(rightLowerLeg);
+
+// Right upper leg
+const rightUpperLeg = leftUpperLeg.clone();
+rightUpperLeg.position.x = 0.12;
+group.add(rightUpperLeg);
+
+// ---------- Feet (simple boxes) ----------
+const footGeo = new THREE.BoxGeometry(0.22, 0.06, 0.12);
+const leftFoot = new THREE.Mesh(footGeo, metalMat);
+leftFoot.position.set(-0.12, 0.03, 0);
+group.add(leftFoot);
+
+const rightFoot = leftFoot.clone();
+rightFoot.position.x = 0.12;
+group.add(rightFoot);
+
+// ---------- Torso ----------
+const torsoGeo = new THREE.BoxGeometry(0.5, 0.8, 0.3);
+const torso = new THREE.Mesh(torsoGeo, bodyMat);
+torso.position.set(0, lowerLegHeight + upperLegHeight + 0.4, 0);
+group.add(torso);
+
+// Chest panel (torus)
+const chestTorusGeo = new THREE.TorusGeometry(0.18, 0.04, 8, 24);
+const chestTorus = new THREE.Mesh(chestTorusGeo, accentMat);
+chestTorus.rotation.x = Math.PI / 2;
+chestTorus.position.set(0, torso.position.y, 0);
+group.add(chestTorus);
+
+// ---------- Shoulders ----------
+const shoulderRadius = 0.09;
+const leftShoulderGeo = new THREE.SphereGeometry(shoulderRadius, 12, 12);
+const leftShoulder = new THREE.Mesh(leftShoulderGeo, metalMat);
+leftShoulder.position.set(-0.32, torso.position.y + 0.3, 0);
+group.add(leftShoulder);
+
+const rightShoulder = leftShoulder.clone();
+rightShoulder.position.x = 0.32;
+group.add(rightShoulder);
+
+// ---------- Arms ----------
+const upperArmLength = 0.5;
+const foreArmLength = 0.45;
+const armRadius = 0.07;
+
+// Left upper arm
+const leftUpperArmGeo = new THREE.CylinderGeometry(armRadius, armRadius, upperArmLength, 12);
+const leftUpperArm = new THREE.Mesh(leftUpperArmGeo, bodyMat);
+leftUpperArm.rotation.z = Math.PI / 2;
+leftUpperArm.position.set(-0.32 - upperArmLength / 2, torso.position.y + 0.3, 0);
+group.add(leftUpperArm);
+
+// Left forearm
+const leftForeArmGeo = new THREE.CylinderGeometry(armRadius, armRadius, foreArmLength, 12);
+const leftForeArm = new THREE.Mesh(leftForeArmGeo, bodyMat);
+leftForeArm.rotation.z = Math.PI / 2;
+leftForeArm.position.set(-0.32 - upperArmLength - foreArmLength / 2, torso.position.y + 0.3, 0);
+group.add(leftForeArm);
+
+// Right upper arm
+const rightUpperArm = leftUpperArm.clone();
+rightUpperArm.position.x = 0.32 + upperArmLength / 2;
+rightUpperArm.rotation.z = -Math.PI / 2;
+group.add(rightUpperArm);
+
+// Right forearm
+const rightForeArm = leftForeArm.clone();
+rightForeArm.position.x = 0.32 + upperArmLength + foreArmLength / 2;
+rightForeArm.rotation.z = -Math.PI / 2;
+group.add(rightForeArm);
+
+// Hands (small boxes)
+const handGeo = new THREE.BoxGeometry(0.12, 0.08, 0.12);
+const leftHand = new THREE.Mesh(handGeo, metalMat);
+leftHand.position.set(-0.32 - upperArmLength - foreArmLength - 0.06, torso.position.y + 0.3, 0);
+group.add(leftHand);
+
+const rightHand = leftHand.clone();
+rightHand.position.x = 0.32 + upperArmLength + foreArmLength + 0.06;
+group.add(rightHand);
+
+// ---------- Head ----------
+const headRadius = 0.22;
+const headGeo = new THREE.SphereGeometry(headRadius, 16, 16);
+const head = new THREE.Mesh(headGeo, headMat);
+head.position.set(0, torso.position.y + 0.5 + headRadius, 0);
+group.add(head);
+
+// Antenna pole
+const antennaPoleGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.3, 8);
+const antennaPole = new THREE.Mesh(antennaPoleGeo, metalMat);
+antennaPole.position.set(0, head.position.y + headRadius + 0.15, 0);
+group.add(antennaPole);
+
+// Antenna tip
+const antennaTipGeo = new THREE.SphereGeometry(0.04, 8, 8);
+const antennaTip = new THREE.Mesh(antennaTipGeo, accentMat);
+antennaTip.position.set(0, antennaPole.position.y + 0.15, 0);
+group.add(antennaTip);
+
+// ---------- Eyes ----------
+const eyeGeo = new THREE.SphereGeometry(0.04, 8, 8);
+const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+leftEye.position.set(-0.07, head.position.y + 0.05, headRadius - 0.02);
+group.add(leftEye);
+
+const rightEye = leftEye.clone();
+rightEye.position.x = 0.07;
+group.add(rightEye);
+
+// ---------- Mouth (torus) ----------
+const mouthGeo = new THREE.TorusGeometry(0.12, 0.015, 8, 24);
+const mouth = new THREE.Mesh(mouthGeo, accentMat);
+mouth.rotation.x = Math.PI / 2;
+mouth.position.set(0, head.position.y - 0.08, headRadius - 0.01);
+group.add(mouth);
+
+// ---------- Back panel (cone) ----------
+const backConeGeo = new THREE.ConeGeometry(0.15, 0.3, 8);
+const backCone = new THREE.Mesh(backConeGeo, accentMat);
+backCone.rotation.x = Math.PI;
+backCone.position.set(0, torso.position.y + 0.1, -0.18);
+group.add(backCone);
+
+// ---------- Side panels (thin boxes) ----------
+const sidePanelGeo = new THREE.BoxGeometry(0.02, 0.5, 0.28);
+const leftPanel = new THREE.Mesh(sidePanelGeo, accentMat);
+leftPanel.position.set(-0.26, torso.position.y, 0);
+group.add(leftPanel);
+
+const rightPanel = leftPanel.clone();
+rightPanel.position.x = 0.26;
+group.add(rightPanel);
+
+// ---------- Details: bolts (small cylinders) ----------
+for (let i = -1; i <= 1; i++) {
+    const boltGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.04, 6);
+    const bolt = new THREE.Mesh(boltGeo, metalMat);
+    bolt.rotation.x = Math.PI / 2;
+    bolt.position.set(i * 0.2, torso.position.y + 0.3, 0.16);
+    group.add(bolt);
+}
+
+// Ensure robot sits on y=0 (already aligned via legs)
+return group
+}
+(function(){
+var er=document.getElementById('err');
+if(typeof THREE==='undefined'){er.textContent='3D library failed to load. Check your internet.';return}
+var scene=new THREE.Scene();scene.background=new THREE.Color(0x0d0d0c);
+var cam=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,0.1,100);
+var ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.setSize(innerWidth,innerHeight);document.body.appendChild(ren.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x333344,0.9));
+var dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(5,8,5);scene.add(dl);
+scene.add(new THREE.GridHelper(10,20,0x7C83DB,0x2a2a35));
+var model;try{model=buildModel(THREE)}catch(e){model=new THREE.Group();er.textContent='Model error: '+e.message}
+var box=new THREE.Box3().setFromObject(model);var sz=box.getSize(new THREE.Vector3());var mx=Math.max(sz.x,sz.y,sz.z)||1;model.scale.setScalar(3/mx);
+box=new THREE.Box3().setFromObject(model);var c=box.getCenter(new THREE.Vector3());model.position.x-=c.x;model.position.z-=c.z;model.position.y-=box.min.y;scene.add(model);
+var th=0.8,ph=1.1,d=7,auto=true,drag=false,lx=0,ly=0;
+function cp(){cam.position.set(d*Math.sin(ph)*Math.sin(th),d*Math.cos(ph)+1.2,d*Math.sin(ph)*Math.cos(th));cam.lookAt(0,1.2,0)}
+var el=ren.domElement;el.style.touchAction='none';
+el.addEventListener('pointerdown',function(e){drag=true;auto=false;lx=e.clientX;ly=e.clientY});
+addEventListener('pointerup',function(){drag=false});
+addEventListener('pointermove',function(e){if(!drag)return;th-=(e.clientX-lx)*0.01;ph=Math.max(0.2,Math.min(1.5,ph-(e.clientY-ly)*0.01));lx=e.clientX;ly=e.clientY});
+el.addEventListener('wheel',function(e){e.preventDefault();d=Math.max(3,Math.min(14,d+e.deltaY*0.005))},{passive:false});
+addEventListener('resize',function(){cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
+(function loop(){requestAnimationFrame(loop);if(auto)th+=0.006;cp();ren.render(scene,cam)})();
+})();
+</script></body></html>

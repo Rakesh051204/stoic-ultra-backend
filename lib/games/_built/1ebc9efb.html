@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark Calculator</title>
+<style>
+    :root{
+        --bg:#0d0d0c;
+        --txt:#f2f2f0;
+        --accent:#7C83DB;
+        --btn-bg:#1a1a19;
+        --btn-hover:#2a2a28;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{
+        font-family:system-ui,sans-serif;
+        background:var(--bg);
+        color:var(--txt);
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        height:100vh;
+        padding:10px;
+    }
+    .calc{
+        width:100%;
+        max-width:400px;
+        background:var(--btn-bg);
+        border-radius:12px;
+        overflow:hidden;
+        box-shadow:0 4px 12px rgba(0,0,0,.5);
+        display:flex;
+        flex-direction:column;
+    }
+    .display{
+        background:var(--bg);
+        padding:20px;
+        font-size:2rem;
+        text-align:right;
+        overflow-x:auto;
+        min-height:60px;
+    }
+    .buttons{
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:1px;
+    }
+    button{
+        background:var(--btn-bg);
+        border:none;
+        color:var(--txt);
+        font-size:1.5rem;
+        padding:20px;
+        cursor:pointer;
+        transition:background .2s;
+    }
+    button:hover{
+        background:var(--btn-hover);
+    }
+    .operator{color:var(--accent);}
+    .wide{grid-column:span 2;}
+    .equals{
+        background:var(--accent);
+        color:#fff;
+    }
+    .equals:hover{
+        background:#6b71c5;
+    }
+</style>
+</head>
+<body>
+<div class="calc">
+    <div id="display" class="display">0</div>
+    <div class="buttons">
+        <button class="wide" id="clear">C</button>
+        <button id="back">←</button>
+        <button class="operator" data-val="/">÷</button>
+
+        <button data-val="7">7</button>
+        <button data-val="8">8</button>
+        <button data-val="9">9</button>
+        <button class="operator" data-val="*">×</button>
+
+        <button data-val="4">4</button>
+        <button data-val="5">5</button>
+        <button data-val="6">6</button>
+        <button class="operator" data-val="-">−</button>
+
+        <button data-val="1">1</button>
+        <button data-val="2">2</button>
+        <button data-val="3">3</button>
+        <button class="operator" data-val="+">+</button>
+
+        <button class="wide" data-val="0">0</button>
+        <button data-val=".">.</button>
+        <button class="equals" id="equals">=</button>
+    </div>
+</div>
+
+<script>
+(() => {
+    const displayEl = document.getElementById('display');
+    let expr = '';
+
+    const updateDisplay = () => {
+        displayEl.textContent = expr || '0';
+    };
+
+    const append = (char) => {
+        // Prevent multiple operators in a row
+        const ops = '+-*/';
+        if (ops.includes(char) && (expr === '' || ops.includes(expr.slice(-1)))) return;
+        // Prevent multiple decimals in a number segment
+        if (char === '.') {
+            const parts = expr.split(/[\+\-\*\/]/);
+            const last = parts[parts.length-1];
+            if (last.includes('.')) return;
+        }
+        expr += char;
+        updateDisplay();
+    };
+
+    const clear = () => { expr = ''; updateDisplay(); };
+    const backspace = () => { expr = expr.slice(0,-1); updateDisplay(); };
+
+    const calculate = () => {
+        if (!expr) return;
+        try {
+            // Replace unicode division/multiplication signs if any
+            const sanitized = expr.replace(/÷/g,'/').replace(/×/g,'*');
+            const result = Function('"use strict";return ('+sanitized+')')();
+            expr = Number.isFinite(result) ? String(result) : '';
+        } catch {
+            expr = '';
+            alert('Invalid expression');
+        }
+        updateDisplay();
+    };
+
+    // Button listeners
+    document.querySelectorAll('button[data-val]').forEach(btn=>{
+        btn.addEventListener('click',()=>append(btn.dataset.val));
+    });
+    document.getElementById('clear').addEventListener('click',clear);
+    document.getElementById('back').addEventListener('click',backspace);
+    document.getElementById('equals').addEventListener('click',calculate);
+
+    // Keyboard support
+    document.addEventListener('keydown', e=>{
+        const key = e.key;
+        if (/[0-9]/.test(key)) append(key);
+        else if (key === '.') append('.');
+        else if (key === '+'||key==='-') append(key);
+        else if (key === '*') append('*');
+        else if (key === '/'||key === '÷') append('/');
+        else if (key === 'Enter') { e.preventDefault(); calculate(); }
+        else if (key === 'Backspace') backspace();
+        else if (key === 'Escape') clear();
+    });
+})();
+</script>
+</body>
+</html>

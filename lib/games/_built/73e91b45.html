@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Night Hunt</title>
+<style>
+html,body{margin:0;height:100%;background:#0d0d0c;color:#f2f2f0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+#box{position:relative;width:min(100vw,calc(100vh * 1.6));aspect-ratio:8/5;max-height:100%}
+canvas{width:100%;height:100%;display:block;background:#15151a;border-radius:10px}
+#hud{position:absolute;left:12px;right:12px;top:8px;display:flex;justify-content:space-between;font-weight:700;font-size:clamp(12px,2.4vw,18px);pointer-events:none;text-shadow:0 1px 4px #000}
+.ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;background:#0d0d0ce6;border-radius:10px;padding:16px}
+.ov[hidden]{display:none}
+h1{margin:0 0 6px;font-size:clamp(22px,5vw,40px)}
+.ov p{margin:0 0 14px;opacity:.8;font-size:clamp(12px,2.4vw,16px)}
+.go{border:0;border-radius:10px;padding:12px 26px;font:700 16px system-ui,sans-serif;background:#7C83DB;color:#0d0d0c;cursor:pointer}
+.go:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#pad{position:absolute;left:0;right:0;bottom:6px;display:none;justify-content:space-between;padding:0 10px;pointer-events:none}
+#pad div{display:flex;gap:8px;pointer-events:auto}
+#pad button{width:clamp(44px,11vw,64px);height:clamp(44px,11vw,64px);border-radius:50%;border:2px solid #ffffff66;background:#ffffff1f;color:#fff;font:700 20px system-ui,sans-serif}
+@media (pointer:coarse){#pad{display:flex}}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="box">
+<canvas id="cv" width="800" height="500"></canvas>
+<div id="hud"><span>Score <b id="sc">0</b></span><span>Best <b id="bs">0</b></span></div>
+<div id="pad"><div><button id="pl" aria-label="Left">&#9664;</button><button id="pr" aria-label="Right">&#9654;</button></div><div><button id="pu" aria-label="Up">&#9650;</button><button id="pd" aria-label="Down">&#9660;</button><button id="pa" aria-label="Action">A</button></div></div>
+<div class="ov" id="menu"><div><h1>Night Hunt</h1><p>Survive endless zombie waves</p><p>Move with arrows, shoot with space or tap</p><button class="go" id="start">Play</button></div></div>
+<div class="ov" id="over" hidden><div><h1>Game over</h1><p id="fin"></p><button class="go" id="again">Play again</button></div></div>
+</div></div>
+<script>
+var __K={};
+const ctx=document.getElementById('cv').getContext('2d'),W=800,H=500;
+const keys={left:0,right:0,up:0,down:0,action:0,pressed:{left:0,right:0,up:0,down:0,action:0}};
+const ptr={x:400,y:250,down:0,clicked:0};
+let score=0;
+const rand=(a,b)=>a+Math.random()*(b-a),randi=(a,b)=>Math.floor(rand(a,b+1)),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const hit=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+const addScore=n=>{score+=(n===undefined?1:n);__K.hud()};
+const gameOver=()=>__K.over();
+const beep=(f,d)=>__K.beep(f,d);
+//GAME: Night Hunt | Survive endless zombie waves | Move with arrows, shoot with space or tap
+let player, zombies, bullets, particles, powerUps, shakeTime, shakeIntensity, wave, spawnTimer, introTimer;
+function init(){
+    player={x:W/2,y:H/2,w:30,h:40,dx:0,dy:0,spd:200,health:5,shootCooldown:0};
+    zombies=[];
+    bullets=[];
+    particles=[];
+    powerUps=[];
+    shakeTime=0;
+    shakeIntensity=0;
+    wave=1;
+    spawnTimer=0;
+    introTimer=3; // seconds of intro text
+    addScore(0);
+}
+function update(dt){
+    // intro countdown
+    if(introTimer>0){
+        introTimer-=dt;
+        if(introTimer<0) introTimer=0;
+        return;
+    }
+    // player movement
+    player.dx=0; player.dy=0;
+    if(keys.left) player.dx=-1;
+    if(keys.right) player.dx=1;
+    if(keys.up) player.dy=-1;
+    if(keys.down) player.dy=1;
+    let len=Math.hypot(player.dx,player.dy);
+    if(len>0){ player.dx/=len; player.dy/=len; }
+    player.x+=player.dx*player.spd*dt;
+    player.y+=player.dy*player.spd*dt;
+    player.x=clamp(player.x,0,W);
+    player.y=clamp(player.y,0,H);
+    // shooting
+    player.shootCooldown-=dt;
+    let shooting=keys.action||ptr.clicked;
+    if(shooting && player.shootCooldown<=0){
+        let angle=Math.atan2(ptr.y-player.y, ptr.x-player.x);
+        let bx=player.x+Math.cos(angle)*20;
+        let by=player.y+Math.sin(angle)*20;
+        bullets.push({x:bx,y:by,dx:Math.cos(angle),dy:Math.sin(angle),spd:500,life:1});
+        player.shootCooldown=0.2;
+        beep(440,0.05);
+    }
+    // update bullets
+    for(let i=bullets.length-1;i>=0;i--){
+        let b=bullets[i];
+        b.x+=b.dx*b.spd*dt;
+        b.y+=b.dy*b.spd*dt;
+        b.life-=dt;
+        if(b.x<0||b.x>W||b.y<0||b.y>H||b.life<=0){
+            bullets.splice(i,1);
+        }
+    }
+    // spawn zombies
+    spawnTimer-=dt;
+    let spawnInterval=Math.max(2-(wave*0.1),0.4);
+    if(spawnTimer<=0){
+        spawnTimer=spawnInterval;
+        let side=randi(0,3);
+        let zx,zy;
+        if(side===0){ zx=0; zy=rand(0,H); }
+        else if(side===1){ zx=W; zy=rand(0,H); }
+        else if(side===2){ zx=rand(0,W); zy=0; }
+        else { zx=rand(0,W); zy=H; }
+        zombies.push({x:zx,y:zy,w:30,h:50,spd:80+wave*5,health:2+wave*0.5});
+    }
+    // update zombies
+    for(let i=zombies.length-1;i>=0;i--){
+        let z=zombies[i];
+        let dx=player.x-z.x;
+        let dy=player.y-z.y;
+        let dlen=Math.hypot(dx,dy);
+        if(dlen>0){ dx/=dlen; dy/=dlen; }
+        z.x+=dx*z.spd*dt;
+        z.y+=dy*z.spd*dt;
+        // collision with player
+        if(hit(z,player)){
+            player.health--;
+            shakeTime=0.3;
+            shakeIntensity=6;
+            zombies.splice(i,1);
+            if(player.health<=0) gameOver();
+        }
+    }
+    // bullet-zombie collisions
+    for(let i=bullets.length-1;i>=0;i--){
+        let b=bullets[i];
+        let hitZ=false;
+        for(let j=zombies.length-1;j>=0;j--){
+            let z=zombies[j];
+            if(hit(b,z)){
+                z.health-=1;
+                hitZ=true;
+                particles.push(...createBlood(b.x,b.y,8));
+                if(z.health<=0){
+                    addScore(10);
+                    zombies.splice(j,1);
+                    // chance power-up
+                    if(Math.random()<0.1){
+                        powerUps.push({x:z.x,y:z.y,type:"health"});
+                    }
+                }
+                break;
+            }
+        }
+        if(hitZ){
+            bullets.splice(i,1);
+        }
+    }
+    // power-ups
+    for(let i=powerUps.length-1;i>=0;i--){
+        let p=powerUps[i];
+        if(hit(p,player)){
+            if(p.type==="health" && player.health<5){
+                player.health++;
+                beep(660,0.1);
+            }
+            powerUps.splice(i,1);
+        }
+    }
+    // particles
+    for(let i=particles.length-1;i>=0;i--){
+        let p=particles[i];
+        p.x+=p.vx*dt;
+        p.y+=p.vy*dt;
+        p.life-=dt;
+        if(p.life<=0) particles.splice(i,1);
+    }
+    // screen shake decay
+    if(shakeTime>0){
+        shakeTime-=dt;
+        if(shakeTime<0) shakeTime=0;
+    }
+    // wave progression
+    if(zombies.length===0 && spawnTimer>1){
+        wave++;
+        addScore(50);
+        beep(880,0.2);
+    }
+}
+function draw(){
+    // background layers
+    ctx.save();
+    if(shakeTime>0){
+        let ox=rand(-shakeIntensity,shakeIntensity);
+        let oy=rand(-shakeIntensity,shakeIntensity);
+        ctx.translate(ox,oy);
+    }
+    // sky
+    let sky=ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0,"#0a0a30");
+    sky.addColorStop(1,"#1a1a50");
+    ctx.fillStyle=sky;
+    ctx.fillRect(0,0,W,H);
+    // distant hills
+    ctx.fillStyle="#224422";
+    ctx.beginPath();
+    ctx.moveTo(0,H*0.7);
+    for(let i=0;i<=W;i+=50){
+        let h=H*0.7+Math.sin(i*0.02+Date.now()*0.0005)*20;
+        ctx.lineTo(i,h);
+    }
+    ctx.lineTo(W,H);
+    ctx.lineTo(0,H);
+    ctx.fill();
+    // near ground
+    ctx.fillStyle="#333333";
+    ctx.fillRect(0,H*0.85,W,H*0.15);
+    // intro text
+    if(introTimer>0){
+        ctx.fillStyle="#ffffff";
+        ctx.font="48px sans-serif";
+        ctx.textAlign="center";
+        ctx.fillText("Night Hunt",W/2,H/2-30);
+        ctx.font="24px sans-serif";
+        ctx.fillText("Survive the endless horde",W/2,H/2+10);
+    }
+    // draw power-ups
+    for(let p of powerUps){
+        ctx.fillStyle="#00ff00";
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,8,0,Math.PI*2);
+        ctx.fill();
+    }
+    // draw zombies
+    for(let z of zombies){
+        ctx.save();
+        ctx.translate(z.x,z.y);
+        ctx.fillStyle="#556b2f";
+        // torso
+        ctx.fillRect(-15,-20,30,40);
+        // head
+        ctx.fillStyle="#2e8b57";
+        ctx.beginPath();
+        ctx.arc(0,-30,12,0,Math.PI*2);
+        ctx.fill();
+        // arms
+        ctx.strokeStyle="#2e8b57";
+        ctx.lineWidth=4;
+        ctx.beginPath();
+        ctx.moveTo(-15,0);
+        ctx.lineTo(-25,10);
+        ctx.moveTo(15,0);
+        ctx.lineTo(25,10);
+        ctx.stroke();
+        // legs
+        ctx.beginPath();
+        ctx.moveTo(-10,20);
+        ctx.lineTo(-10,35);
+        ctx.moveTo(10,20);
+        ctx.lineTo(10,35);
+        ctx.stroke();
+        ctx.restore();
+    }
+    // draw bullets
+    ctx.fillStyle="#ffff00";
+    for(let b of bullets){
+        ctx.fillRect(b.x-2,b.y-2,4,4);
+    }
+    // draw player
+    ctx.save();
+    ctx.translate(player.x,player.y);
+    ctx.fillStyle="#2222ff";
+    // body
+    ctx.fillRect(-15,-20,30,40);
+    // head
+    ctx.fillStyle="#ffddaa";
+    ctx.beginPath();
+    ctx.arc(0,-30,12,0,Math.PI*2);
+    ctx.fill();
+    // gun
+    let aimAngle=Math.atan2(ptr.y-player.y, ptr.x-player.x);
+    ctx.strokeStyle="#444444";
+    ctx.lineWidth=6;
+    ctx.beginPath();
+    ctx.moveTo(0,-10);
+    ctx.lineTo(Math.cos(aimAngle)*25, Math.sin(aimAngle)*25-10);
+    ctx.stroke();
+    ctx.restore();
+    // particles
+    for(let p of particles){
+        ctx.fillStyle=`rgba(255,0,0,${p.life})`;
+        ctx.fillRect(p.x-1,p.y-1,2,2);
+    }
+    // UI
+    ctx.fillStyle="#ffffff";
+    ctx.font="16px sans-serif";
+    ctx.textAlign="left";
+    ctx.fillText("Score: "+score,10,20);
+    ctx.fillText("Wave: "+wave,10,40);
+    // health bar
+    let barW=100, barH=12;
+    ctx.fillStyle="#555555";
+    ctx.fillRect(W-120,10,barW,barH);
+    ctx.fillStyle="#ff0000";
+    ctx.fillRect(W-120,10,barW*(player.health/5),barH);
+    ctx.strokeStyle="#000000";
+    ctx.strokeRect(W-120,10,barW,barH);
+    ctx.restore();
+}
+(function(){
+const $=id=>document.getElementById(id),cv=ctx.canvas,TITLE=document.title;
+let state='menu',best=0,au,last=performance.now();
+try{best=+localStorage.getItem('gk.'+TITLE)||0}catch(e){}
+$('bs').textContent=best;
+__K.hud=()=>{$('sc').textContent=Math.floor(score)};
+__K.beep=(f,d)=>{try{au=au||new(window.AudioContext||window.webkitAudioContext)();const o=au.createOscillator(),g=au.createGain();o.frequency.value=f||440;g.gain.value=.05;o.connect(g);g.connect(au.destination);o.start();o.stop(au.currentTime+(d||.08))}catch(e){}};
+__K.over=()=>{if(state!=='play')return;state='over';const s=Math.floor(score);if(s>best){best=s;try{localStorage.setItem('gk.'+TITLE,s)}catch(e){}}
+$('bs').textContent=best;$('fin').textContent='Score '+s+'   Best '+best;__K.beep(120,.3);setTimeout(()=>{$('over').hidden=false;$('again').focus()},500)};
+function begin(){if(state==='play')return;state='play';score=0;__K.hud();$('menu').hidden=true;$('over').hidden=true;try{init()}catch(e){console.error(e)}}
+const KM={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down',' ':'action',z:'action',Z:'action',x:'action',X:'action'};
+addEventListener('keydown',e=>{const k=KM[e.key];if(k){if(!keys[k])keys.pressed[k]=1;keys[k]=1;e.preventDefault();if(k==='action'&&state!=='play')begin()}else if(e.key==='Enter'&&state!=='play')begin()});
+addEventListener('keyup',e=>{const k=KM[e.key];if(k)keys[k]=0});
+addEventListener('blur',()=>{['left','right','up','down','action'].forEach(k=>{keys[k]=0})});
+function bind(id,k){const b=$(id);b.addEventListener('pointerdown',e=>{e.preventDefault();if(!keys[k])keys.pressed[k]=1;keys[k]=1});['pointerup','pointercancel','pointerleave'].forEach(n=>b.addEventListener(n,()=>{keys[k]=0}))}
+bind('pl','left');bind('pr','right');bind('pu','up');bind('pd','down');bind('pa','action');
+function pp(e){const r=cv.getBoundingClientRect();ptr.x=(e.clientX-r.left)*W/r.width;ptr.y=(e.clientY-r.top)*H/r.height}
+cv.addEventListener('pointerdown',e=>{pp(e);ptr.down=1;ptr.clicked=1});cv.addEventListener('pointermove',pp);
+addEventListener('pointerup',()=>{ptr.down=0});
+$('start').onclick=begin;$('again').onclick=begin;
+try{init()}catch(e){console.error(e)}
+function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,(t-last)/1000);last=t;
+if(state==='play'){try{update(dt)}catch(e){console.error(e)}}
+try{draw()}catch(e){console.error(e)}
+for(const k in keys.pressed)keys.pressed[k]=0;ptr.clicked=0}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -40,6 +40,7 @@ export async function runSearch(searchQuery, mode = 'balanced') {
     wikiPromise,
   ]);
 
+  console.log('[search] results per query:', responses.map((r) => (r.results || []).length).join(', '));
   const seenUrls = new Set();
   const sources = [];
 
